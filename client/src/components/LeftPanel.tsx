@@ -19,6 +19,16 @@ const STATUS_COLORS: Record<string, string> = {
   idle:    "bg-zinc-600",
 };
 
+type StatusFilter = "all" | "done" | "error" | "running" | "warning";
+
+const FILTER_OPTIONS: { id: StatusFilter; label: string; dot?: string }[] = [
+  { id: "all",     label: "Все" },
+  { id: "running", label: "В работе", dot: "bg-blue-400" },
+  { id: "done",    label: "Готово",   dot: "bg-emerald-400" },
+  { id: "error",   label: "Ошибки",   dot: "bg-red-400" },
+  { id: "warning", label: "Внимание", dot: "bg-yellow-400" },
+];
+
 export default function LeftPanel() {
   const { state, dispatch } = useApp();
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(["p1", "p2"]));
@@ -26,6 +36,7 @@ export default function LeftPanel() {
   const [showNewProject, setShowNewProject] = useState(false);
   const [newTaskNames, setNewTaskNames] = useState<Record<string, string>>({});
   const [showNewTask, setShowNewTask] = useState<Record<string, boolean>>({});
+  const [taskFilter, setTaskFilter] = useState<StatusFilter>("all");
 
   const toggleProject = (id: string) => {
     setExpandedProjects(prev => {
@@ -113,10 +124,38 @@ export default function LeftPanel() {
           </div>
         )}
 
+        {/* Global task filter bar */}
+        <div className="px-3 pb-2 pt-0.5">
+          <div className="flex items-center gap-1 flex-wrap">
+            {FILTER_OPTIONS.map(f => {
+              const count = f.id === "all"
+                ? state.projects.reduce((s, p) => s + p.tasks.length, 0)
+                : state.projects.reduce((s, p) => s + p.tasks.filter(t => t.status === f.id).length, 0);
+              if (f.id !== "all" && count === 0) return null;
+              return (
+                <button key={f.id} onClick={() => setTaskFilter(f.id)}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium transition-all ${
+                    taskFilter === f.id
+                      ? "bg-primary/15 text-primary border border-primary/30"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50 border border-transparent"
+                  }`}>
+                  {f.dot && <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${f.dot}`} />}
+                  {f.label}
+                  <span className={`mono ml-0.5 text-[9px] ${taskFilter === f.id ? "text-primary/70" : "text-muted-foreground/50"}`}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {state.projects.map(project => {
           const isExpanded = expandedProjects.has(project.id);
           const projectCost = getProjectCost(state.projects, project.id);
           const isActiveProject = state.activeProjectId === project.id;
+          const filteredTasks = taskFilter === "all"
+            ? project.tasks
+            : project.tasks.filter(t => t.status === taskFilter);
+          if (taskFilter !== "all" && filteredTasks.length === 0) return null;
 
           return (
             <div key={project.id}>
@@ -126,6 +165,9 @@ export default function LeftPanel() {
                 <span className="text-muted-foreground">{isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</span>
                 <FolderOpen size={13} className="text-muted-foreground flex-shrink-0" />
                 <span className="flex-1 text-left text-[12px] font-medium text-foreground truncate">{project.name}</span>
+                {taskFilter !== "all" && (
+                  <span className="mono text-[10px] text-muted-foreground/60 flex-shrink-0 mr-1">{filteredTasks.length}</span>
+                )}
                 <span className="mono text-[11px] text-muted-foreground flex-shrink-0">
                   {formatCostShort(projectCost)}
                 </span>
@@ -134,7 +176,7 @@ export default function LeftPanel() {
               {/* Tasks */}
               {isExpanded && (
                 <div className="ml-4 border-l border-border/50 pl-2 mb-1">
-                  {project.tasks.map(task => {
+                  {filteredTasks.map(task => {
                     const isActive = state.activeTaskId === task.id && state.activeProjectId === project.id;
                     return (
                       <button key={task.id}
