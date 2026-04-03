@@ -7,9 +7,17 @@ import { formatCostShort, formatCost, MOCK_PROJECTS } from "@/lib/mockData";
 import {
   FolderOpen, Plus, ChevronDown, ChevronRight,
   LayoutDashboard, Settings, Users, BookOpen,
-  Calendar, Moon, Sun, LogOut, Zap, ChevronLeft
+  Calendar, Moon, Sun, LogOut, Zap, ChevronLeft,
+  ChevronUp, HelpCircle, Globe, CreditCard, Download
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const STATUS_COLORS: Record<string, string> = {
   running: "bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.6)]",
@@ -220,41 +228,76 @@ export default function LeftPanel() {
         })}
       </div>
 
-      {/* Bottom navigation */}
-      <div className="border-t border-border flex-shrink-0">
-        {navItems.map(item => (
-          <button key={item.view}
-            onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", view: item.view })}
-            className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-[12px] ${state.activeView === item.view ? "text-primary bg-primary/5" : "text-muted-foreground"}`}>
-            {item.icon}
-            <span>{item.label}</span>
-          </button>
-        ))}
-
-        {/* Dog Racing */}
-        <button onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", view: "dog-racing" })}
-          className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-[12px] ${state.activeView === "dog-racing" ? "text-primary bg-primary/5" : "text-muted-foreground"}`}>
-          <span className="text-[13px]">🐕</span>
-          <span>Dog Racing</span>
-        </button>
-
-        {/* User row */}
-        <div className="flex items-center gap-2 px-4 py-3 border-t border-border">
-          <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">
-            АП
+      {/* Bottom navigation — compact icon row like Claude */}
+      <div className="border-t border-border flex-shrink-0 px-2 py-2">
+        {/* Icon row */}
+        <div className="flex items-center justify-between">
+          {/* Nav icons */}
+          <div className="flex items-center gap-0.5">
+            {navItems.map(item => (
+              <button key={item.view}
+                onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", view: item.view })}
+                title={item.label}
+                className={`p-2 rounded-md hover:bg-accent/60 transition-colors ${
+                  state.activeView === item.view
+                    ? "text-primary bg-primary/10"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}>
+                {item.icon}
+              </button>
+            ))}
+            {/* Dog Racing icon */}
+            <button
+              onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", view: "dog-racing" })}
+              title="Dog Racing"
+              className={`p-2 rounded-md hover:bg-accent/60 transition-colors text-[14px] leading-none ${
+                state.activeView === "dog-racing"
+                  ? "opacity-100 bg-primary/10"
+                  : "opacity-60 hover:opacity-100"
+              }`}>
+              🐕
+            </button>
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-[11px] font-medium text-foreground truncate">Алексей Петров</div>
-            <div className="text-[10px] text-muted-foreground">Супер-админ</div>
-          </div>
-          <button onClick={() => dispatch({ type: "TOGGLE_THEME" })}
-            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-            {state.theme === "dark" ? <Sun size={13} /> : <Moon size={13} />}
-          </button>
-          <button onClick={() => toast.info("Выход из системы")}
-            className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-            <LogOut size={13} />
-          </button>
+
+          {/* User avatar + dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-1.5 px-1.5 py-1 rounded-md hover:bg-accent/60 transition-colors group">
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">
+                  АП
+                </div>
+                <ChevronUp size={11} className="text-muted-foreground group-hover:text-foreground transition-colors" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="end" className="w-56 mb-1">
+              <div className="px-3 py-2 border-b border-border">
+                <div className="text-[12px] font-medium text-foreground">Алексей Петров</div>
+                <div className="text-[11px] text-muted-foreground">alexey@company.ru · Супер-админ</div>
+              </div>
+              <DropdownMenuItem onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", view: "settings" })}>
+                <Settings size={13} className="mr-2" /> Настройки
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast.info("Язык интерфейса")}>
+                <Globe size={13} className="mr-2" /> Язык
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast.info("Помощь и поддержка")}>
+                <HelpCircle size={13} className="mr-2" /> Помощь
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => dispatch({ type: "TOGGLE_THEME" })}>
+                {state.theme === "dark"
+                  ? <><Sun size={13} className="mr-2" /> Светлая тема</>
+                  : <><Moon size={13} className="mr-2" /> Тёмная тема</>}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast.info("Загрузка приложения")}>
+                <Download size={13} className="mr-2" /> Загрузить приложение
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => toast.info("Выход из системы")} className="text-destructive focus:text-destructive">
+                <LogOut size={13} className="mr-2" /> Выйти
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </div>
