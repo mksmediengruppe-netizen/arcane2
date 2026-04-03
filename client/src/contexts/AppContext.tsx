@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from "react";
+import React, { createContext, useContext, useReducer } from "react";
 import { AppState, AppAction, appReducer, initialState } from "@/lib/store";
 
 interface AppContextType {
@@ -10,11 +10,6 @@ const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
-
-  // Apply theme on mount
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", state.theme === "dark");
-  }, [state.theme]);
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>

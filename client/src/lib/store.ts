@@ -30,6 +30,13 @@ export type AppAction =
   | { type: "ADD_RACE"; race: Race }
   | { type: "TOGGLE_THEME" };
 
+// Read saved theme from localStorage, default to "dark"
+const savedTheme = (typeof window !== "undefined" && (localStorage.getItem("arcane-theme") as "dark" | "light")) || "dark";
+// Apply immediately to avoid flash
+if (typeof document !== "undefined") {
+  document.documentElement.classList.toggle("dark", savedTheme === "dark");
+}
+
 export const initialState: AppState = {
   projects: MOCK_PROJECTS,
   activeProjectId: "p1",
@@ -40,7 +47,7 @@ export const initialState: AppState = {
   rightPanelOpen: true,
   leftPanelWidth: 260,
   rightPanelWidth: 380,
-  theme: "dark",
+  theme: savedTheme,
 };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -102,6 +109,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "TOGGLE_THEME": {
       const theme = state.theme === "dark" ? "light" : "dark";
       document.documentElement.classList.toggle("dark", theme === "dark");
+      localStorage.setItem("arcane-theme", theme);
       return { ...state, theme };
     }
     default: return state;
