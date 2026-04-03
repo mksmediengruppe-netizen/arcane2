@@ -28,7 +28,12 @@ export type AppAction =
   | { type: "SET_LEFT_WIDTH"; width: number }
   | { type: "SET_RIGHT_WIDTH"; width: number }
   | { type: "ADD_RACE"; race: Race }
-  | { type: "TOGGLE_THEME" };
+  | { type: "TOGGLE_THEME" }
+  | { type: "MOVE_TASK"; taskId: string; fromProjectId: string; toProjectId: string }
+  | { type: "RENAME_TASK"; projectId: string; taskId: string; name: string }
+  | { type: "RENAME_PROJECT"; projectId: string; name: string }
+  | { type: "DELETE_TASK"; projectId: string; taskId: string }
+  | { type: "DELETE_PROJECT"; projectId: string };
 
 // Read saved theme from localStorage, default to "dark"
 const savedTheme = (typeof window !== "undefined" && (localStorage.getItem("arcane-theme") as "dark" | "light")) || "dark";
@@ -106,6 +111,41 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "SET_LEFT_WIDTH":  return { ...state, leftPanelWidth: action.width };
     case "SET_RIGHT_WIDTH": return { ...state, rightPanelWidth: action.width };
     case "ADD_RACE": return { ...state, races: [action.race, ...state.races] };
+    case "MOVE_TASK": {
+      if (action.fromProjectId === action.toProjectId) return state;
+      const task = state.projects.find(p => p.id === action.fromProjectId)?.tasks.find(t => t.id === action.taskId);
+      if (!task) return state;
+      const projects = state.projects.map(p => {
+        if (p.id === action.fromProjectId) return { ...p, tasks: p.tasks.filter(t => t.id !== action.taskId) };
+        if (p.id === action.toProjectId) return { ...p, tasks: [...p.tasks, task] };
+        return p;
+      });
+      const newActiveTask = state.activeTaskId === action.taskId ? action.taskId : state.activeTaskId;
+      const newActiveProject = state.activeTaskId === action.taskId ? action.toProjectId : state.activeProjectId;
+      return { ...state, projects, activeProjectId: newActiveProject, activeTaskId: newActiveTask };
+    }
+    case "RENAME_TASK": {
+      const projects = state.projects.map(p =>
+        p.id !== action.projectId ? p : { ...p, tasks: p.tasks.map(t => t.id === action.taskId ? { ...t, name: action.name } : t) }
+      );
+      return { ...state, projects };
+    }
+    case "RENAME_PROJECT": {
+      const projects = state.projects.map(p => p.id === action.projectId ? { ...p, name: action.name } : p);
+      return { ...state, projects };
+    }
+    case "DELETE_TASK": {
+      const projects = state.projects.map(p =>
+        p.id !== action.projectId ? p : { ...p, tasks: p.tasks.filter(t => t.id !== action.taskId) }
+      );
+      const wasActive = state.activeTaskId === action.taskId && state.activeProjectId === action.projectId;
+      return { ...state, projects, activeTaskId: wasActive ? null : state.activeTaskId };
+    }
+    case "DELETE_PROJECT": {
+      const projects = state.projects.filter(p => p.id !== action.projectId);
+      const wasActive = state.activeProjectId === action.projectId;
+      return { ...state, projects, activeProjectId: wasActive ? null : state.activeProjectId, activeTaskId: wasActive ? null : state.activeTaskId };
+    }
     case "TOGGLE_THEME": {
       const theme = state.theme === "dark" ? "light" : "dark";
       document.documentElement.classList.toggle("dark", theme === "dark");

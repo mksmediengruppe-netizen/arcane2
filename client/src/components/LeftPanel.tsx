@@ -7,8 +7,19 @@ import {
   FolderOpen, Plus, ChevronDown, ChevronRight,
   LayoutDashboard, Settings, Users, BookOpen,
   Calendar, Moon, Sun, LogOut, Zap, ChevronLeft,
-  ChevronUp, HelpCircle, Globe, Download, Search, X
+  ChevronUp, HelpCircle, Globe, Download, Search, X,
+  MoreHorizontal, Pencil, Trash2
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -61,6 +72,15 @@ export default function LeftPanel() {
   const [taskFilter, setTaskFilter] = useState<StatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [navExpanded, setNavExpanded] = useState(false);
+  const [dragTaskId, setDragTaskId] = useState<string | null>(null);
+  const [dragFromProjectId, setDragFromProjectId] = useState<string | null>(null);
+  const [dragOverProjectId, setDragOverProjectId] = useState<string | null>(null);
+  // Rename state
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  // Delete confirm state
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: "task" | "project"; id: string; projectId?: string; name: string } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Ctrl+K / Cmd+K focuses search
@@ -101,6 +121,75 @@ export default function LeftPanel() {
     setShowNewProject(false);
   };
 
+  // ── Rename helpers ──────────────────────────────────────────────────────────
+  const startRename = (id: string, currentName: string) => {
+    setRenamingId(id);
+    setRenameValue(currentName);
+    setTimeout(() => renameInputRef.current?.select(), 30);
+  };
+
+  const commitRename = (id: string, isProject: boolean, projectId?: string) => {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== "") {
+      if (isProject) {
+        dispatch({ type: "RENAME_PROJECT", projectId: id, name: trimmed });
+      } else if (projectId) {
+        dispatch({ type: "RENAME_TASK", projectId, taskId: id, name: trimmed });
+      }
+    }
+    setRenamingId(null);
+    setRenameValue("");
+  };
+
+  const confirmDelete = () => {
+    if (!deleteConfirm) return;
+    if (deleteConfirm.type === "project") {
+      dispatch({ type: "DELETE_PROJECT", projectId: deleteConfirm.id });
+      toast.success(`Проект «${deleteConfirm.name}» удалён`);
+    } else if (deleteConfirm.projectId) {
+      dispatch({ type: "DELETE_TASK", projectId: deleteConfirm.projectId, taskId: deleteConfirm.id });
+      toast.success(`Задача «${deleteConfirm.name}» удалена`);
+    }
+    setDeleteConfirm(null);
+  };
+
+  const handleDragStart = (e: React.DragEvent, taskId: string, fromProjectId: string) => {
+    setDragTaskId(taskId);
+    setDragFromProjectId(fromProjectId);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", taskId);
+  };
+
+  const handleDragEnd = () => {
+    setDragTaskId(null);
+    setDragFromProjectId(null);
+    setDragOverProjectId(null);
+  };
+
+  const handleProjectDragOver = (e: React.DragEvent, projectId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (dragFromProjectId && dragFromProjectId !== projectId) {
+      setDragOverProjectId(projectId);
+    }
+  };
+
+  const handleProjectDragLeave = () => {
+    setDragOverProjectId(null);
+  };
+
+  const handleProjectDrop = (e: React.DragEvent, toProjectId: string) => {
+    e.preventDefault();
+    if (dragTaskId && dragFromProjectId && dragFromProjectId !== toProjectId) {
+      dispatch({ type: "MOVE_TASK", taskId: dragTaskId, fromProjectId: dragFromProjectId, toProjectId });
+      // Auto-expand target project
+      setExpandedProjects(prev => new Set(Array.from(prev).concat(toProjectId)));
+    }
+    setDragTaskId(null);
+    setDragFromProjectId(null);
+    setDragOverProjectId(null);
+  };
+
   const handleAddTask = (projectId: string) => {
     const name = newTaskNames[projectId]?.trim();
     if (!name) return;
@@ -128,7 +217,7 @@ export default function LeftPanel() {
   }
 
   // ── Expanded state ──────────────────────────────────────────────────────────
-  return (
+  return (<>
     <div className="flex flex-col h-full bg-sidebar border-r border-border overflow-hidden select-none"
       style={{ width: state.leftPanelWidth }}>
 
@@ -256,38 +345,103 @@ export default function LeftPanel() {
           if (taskFilter !== "all" && filteredTasks.length === 0) return null;
 
           return (
-            <div key={project.id}>
-              <button onClick={() => toggleProject(project.id)}
-                className={`w-full flex items-center gap-2 px-3 py-2 hover:bg-accent/50 transition-colors group ${isActiveProject ? "bg-accent/30" : ""}`}>
-                <span className="text-muted-foreground">{isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</span>
-                <FolderOpen size={13} className="text-muted-foreground flex-shrink-0" />
-                <span className="flex-1 text-left text-[12px] font-medium text-foreground truncate">{project.name}</span>
+            <div key={project.id}
+              onDragOver={e => handleProjectDragOver(e, project.id)}
+              onDragLeave={handleProjectDragLeave}
+              onDrop={e => handleProjectDrop(e, project.id)}
+              className={`transition-colors rounded-sm ${dragOverProjectId === project.id ? "bg-primary/10 ring-1 ring-primary/30" : ""}`}>
+              <div className={`flex items-center group/proj px-3 py-1.5 hover:bg-accent/50 transition-colors ${isActiveProject ? "bg-accent/30" : ""}`}>
+                <button onClick={() => toggleProject(project.id)} className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="text-muted-foreground flex-shrink-0">{isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</span>
+                  <FolderOpen size={13} className="text-muted-foreground flex-shrink-0" />
+                  {renamingId === project.id ? (
+                    <input ref={renameInputRef} value={renameValue}
+                      onChange={e => setRenameValue(e.target.value)}
+                      onBlur={() => commitRename(project.id, true)}
+                      onKeyDown={e => { if (e.key === "Enter") commitRename(project.id, true); if (e.key === "Escape") { setRenamingId(null); } }}
+                      onClick={e => e.stopPropagation()}
+                      className="flex-1 bg-input border border-primary/50 rounded px-1.5 py-0.5 text-[12px] text-foreground outline-none min-w-0" />
+                  ) : (
+                    <span className="flex-1 text-left text-[12px] font-medium text-foreground truncate">{project.name}</span>
+                  )}
+                </button>
                 {taskFilter !== "all" && (
                   <span className="mono text-[10px] text-muted-foreground/60 flex-shrink-0 mr-1">{filteredTasks.length}</span>
                 )}
-                <span className="mono text-[11px] text-muted-foreground flex-shrink-0">{formatCostShort(projectCost)}</span>
-              </button>
+                <span className="mono text-[11px] text-muted-foreground flex-shrink-0 mr-1">{formatCostShort(projectCost)}</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button onClick={e => e.stopPropagation()}
+                      className="opacity-0 group-hover/proj:opacity-100 p-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-all flex-shrink-0">
+                      <MoreHorizontal size={13} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="right" align="start" className="w-40">
+                    <DropdownMenuItem onClick={() => startRename(project.id, project.name)}>
+                      <Pencil size={12} className="mr-2" /> Переименовать
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setDeleteConfirm({ type: "project", id: project.id, name: project.name })} className="text-destructive focus:text-destructive">
+                      <Trash2 size={12} className="mr-2" /> Удалить проект
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
 
               {isExpanded && (
                 <div className="ml-4 border-l border-border/50 pl-2 mb-1">
                   {filteredTasks.map(task => {
                     const isActive = state.activeTaskId === task.id && state.activeProjectId === project.id;
+                    const isDragging = dragTaskId === task.id;
                     return (
-                      <button key={task.id}
-                        onClick={() => dispatch({ type: "SET_ACTIVE_TASK", projectId: project.id, taskId: task.id })}
-                        className={`w-full flex items-start gap-2 px-2 py-2 rounded-md hover:bg-accent/40 transition-colors text-left group ${isActive ? "bg-accent/60" : ""}`}>
-                        <span className={`status-dot mt-1.5 flex-shrink-0 ${STATUS_COLORS[task.status]}`} />
-                        <div className="flex-1 min-w-0">
-                          <div className={`text-[12px] truncate leading-tight ${isActive ? "text-foreground font-medium" : "text-foreground/80"}`}>
-                            {task.name}
+                      <div key={task.id}
+                        draggable
+                        onDragStart={e => handleDragStart(e, task.id, project.id)}
+                        onDragEnd={handleDragEnd}
+                        className={`group/task flex items-start gap-2 px-2 py-2 rounded-md hover:bg-accent/40 transition-all cursor-grab active:cursor-grabbing ${
+                          isDragging ? "opacity-40 scale-95" : isActive ? "bg-accent/60" : ""
+                        }`}>
+                        <button onClick={() => dispatch({ type: "SET_ACTIVE_TASK", projectId: project.id, taskId: task.id })}
+                          className="flex items-start gap-2 flex-1 min-w-0 text-left">
+                          <span className={`status-dot mt-1.5 flex-shrink-0 ${STATUS_COLORS[task.status]}`} />
+                          <div className="flex-1 min-w-0">
+                            {renamingId === task.id ? (
+                              <input ref={renameInputRef} value={renameValue}
+                                onChange={e => setRenameValue(e.target.value)}
+                                onBlur={() => commitRename(task.id, false, project.id)}
+                                onKeyDown={e => { if (e.key === "Enter") commitRename(task.id, false, project.id); if (e.key === "Escape") setRenamingId(null); }}
+                                onClick={e => e.stopPropagation()}
+                                className="w-full bg-input border border-primary/50 rounded px-1.5 py-0.5 text-[12px] text-foreground outline-none" />
+                            ) : (
+                              <div className={`text-[12px] truncate leading-tight ${isActive ? "text-foreground font-medium" : "text-foreground/80"}`}>
+                                {task.name}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="mono text-[10px] text-muted-foreground">{formatCost(task.cost)}</span>
+                              <span className="text-muted-foreground/40 text-[10px]">·</span>
+                              <span className="mono text-[10px] text-muted-foreground">{task.duration}</span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="mono text-[10px] text-muted-foreground">{formatCost(task.cost)}</span>
-                            <span className="text-muted-foreground/40 text-[10px]">·</span>
-                            <span className="mono text-[10px] text-muted-foreground">{task.duration}</span>
-                          </div>
-                        </div>
-                      </button>
+                        </button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button onClick={e => e.stopPropagation()}
+                              className="opacity-0 group-hover/task:opacity-100 p-0.5 mt-0.5 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-all flex-shrink-0">
+                              <MoreHorizontal size={12} />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent side="right" align="start" className="w-40">
+                            <DropdownMenuItem onClick={() => startRename(task.id, task.name)}>
+                              <Pencil size={12} className="mr-2" /> Переименовать
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setDeleteConfirm({ type: "task", id: task.id, projectId: project.id, name: task.name })} className="text-destructive focus:text-destructive">
+                              <Trash2 size={12} className="mr-2" /> Удалить задачу
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     );
                   })}
 
@@ -416,5 +570,27 @@ export default function LeftPanel() {
         </div>
       </div>
     </div>
-  );
+
+    {/* ── Delete confirmation dialog ── */}
+    <AlertDialog open={!!deleteConfirm} onOpenChange={(open: boolean) => !open && setDeleteConfirm(null)}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>
+            {deleteConfirm?.type === "project" ? "Удалить проект?" : "Удалить задачу?"}
+          </AlertDialogTitle>
+          <AlertDialogDescription>
+            {deleteConfirm?.type === "project"
+              ? `Проект «${deleteConfirm?.name}» и все его задачи будут удалены безвозвратно.`
+              : `Задача «${deleteConfirm?.name}» будет удалена безвозвратно.`}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Отмена</AlertDialogCancel>
+          <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            Удалить
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  </>);
 }
