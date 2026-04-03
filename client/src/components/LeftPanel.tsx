@@ -1,6 +1,6 @@
 // === LEFT PANEL — Navigation, Projects, Tasks, Billing ===
 // Design: Refined Dark SaaS — compact, monospace costs, color-coded status dots
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { getProjectCost, View } from "@/lib/store";
 import { formatCostShort, formatCost, MOCK_PROJECTS } from "@/lib/mockData";
@@ -8,7 +8,7 @@ import {
   FolderOpen, Plus, ChevronDown, ChevronRight,
   LayoutDashboard, Settings, Users, BookOpen,
   Calendar, Moon, Sun, LogOut, Zap, ChevronLeft,
-  ChevronUp, HelpCircle, Globe, CreditCard, Download
+  ChevronUp, HelpCircle, Globe, Download, Search, X
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -18,6 +18,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const STATUS_COLORS: Record<string, string> = {
   running: "bg-blue-400 shadow-[0_0_6px_rgba(96,165,250,0.6)]",
@@ -45,6 +50,38 @@ export default function LeftPanel() {
   const [newTaskNames, setNewTaskNames] = useState<Record<string, string>>({});
   const [showNewTask, setShowNewTask] = useState<Record<string, boolean>>({});
   const [taskFilter, setTaskFilter] = useState<StatusFilter>("all");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const notificationCount = 3; // mock: 3 new system events
+
+  // Open search on Ctrl+K / Cmd+K
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(v => !v);
+      }
+      if (e.key === "Escape") setSearchOpen(false);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  useEffect(() => {
+    if (searchOpen) setTimeout(() => searchRef.current?.focus(), 50);
+  }, [searchOpen]);
+
+  // Flatten all tasks for search
+  const allTasks = state.projects.flatMap(p =>
+    p.tasks.map(t => ({ ...t, projectName: p.name, projectId: p.id }))
+  );
+  const searchResults = searchQuery.trim().length > 0
+    ? allTasks.filter(t =>
+        t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        t.projectName.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : [];
 
   const toggleProject = (id: string) => {
     setExpandedProjects(prev => {
@@ -54,12 +91,12 @@ export default function LeftPanel() {
     });
   };
 
-  const navItems: { icon: React.ReactNode; label: string; view: View }[] = [
-    { icon: <BookOpen size={15} />,      label: "Плейбуки",  view: "playbooks" },
-    { icon: <Calendar size={15} />,      label: "Расписание", view: "schedule" },
-    { icon: <LayoutDashboard size={15} />, label: "Дашборды", view: "dashboard" },
-    { icon: <Users size={15} />,         label: "Пользователи", view: "admin" },
-    { icon: <Settings size={15} />,      label: "Настройки", view: "settings" },
+  const navItems: { icon: React.ReactNode; label: string; view: View; shortcut?: string }[] = [
+    { icon: <BookOpen size={15} />,        label: "Плейбуки",       view: "playbooks",  shortcut: "⌘P" },
+    { icon: <Calendar size={15} />,        label: "Расписание",     view: "schedule",   shortcut: "⌘R" },
+    { icon: <LayoutDashboard size={15} />, label: "Дашборды",       view: "dashboard",  shortcut: "⌘D" },
+    { icon: <Users size={15} />,           label: "Пользователи",  view: "admin",      shortcut: "⌘U" },
+    { icon: <Settings size={15} />,        label: "Настройки",      view: "settings",   shortcut: "⇧⌘," },
   ];
 
   const handleAddProject = () => {
@@ -228,43 +265,122 @@ export default function LeftPanel() {
         })}
       </div>
 
+      {/* Global search panel */}
+      {searchOpen && (
+        <div className="absolute bottom-14 left-0 right-0 z-50 mx-2 rounded-lg border border-border bg-popover shadow-xl overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
+            <Search size={13} className="text-muted-foreground flex-shrink-0" />
+            <input
+              ref={searchRef}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Поиск по задачам и проектам..."
+              className="flex-1 bg-transparent text-[12px] text-foreground placeholder:text-muted-foreground outline-none"
+            />
+            <kbd className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border font-mono">Esc</kbd>
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {searchQuery.trim().length === 0 ? (
+              <div className="px-3 py-3 text-[11px] text-muted-foreground">Начните печатать для поиска...</div>
+            ) : searchResults.length === 0 ? (
+              <div className="px-3 py-3 text-[11px] text-muted-foreground">Ничего не найдено</div>
+            ) : (
+              searchResults.map(task => (
+                <button key={task.id}
+                  onClick={() => {
+                    dispatch({ type: "SET_ACTIVE_TASK", projectId: task.projectId, taskId: task.id });
+                    setSearchOpen(false);
+                    setSearchQuery("");
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent/50 transition-colors text-left">
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_COLORS[task.status] || "bg-zinc-500"}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[12px] text-foreground truncate">{task.name}</div>
+                    <div className="text-[10px] text-muted-foreground">{task.projectName}</div>
+                  </div>
+                  <span className="mono text-[10px] text-muted-foreground flex-shrink-0">{task.cost !== undefined ? `$${task.cost.toFixed(4)}` : ""}</span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Bottom navigation — compact icon row like Claude */}
-      <div className="border-t border-border flex-shrink-0 px-2 py-2">
-        {/* Icon row */}
+      <div className="border-t border-border flex-shrink-0 px-2 py-2 relative">
         <div className="flex items-center justify-between">
-          {/* Nav icons */}
+          {/* Nav icons with tooltips + hotkeys */}
           <div className="flex items-center gap-0.5">
+            {/* Search icon */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setSearchOpen(v => !v)}
+                  className={`p-2 rounded-md hover:bg-accent/60 transition-colors ${
+                    searchOpen ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                  }`}>
+                  <Search size={15} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="flex items-center gap-2">
+                <span>Поиск</span>
+                <kbd className="text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border font-mono">⌘K</kbd>
+              </TooltipContent>
+            </Tooltip>
+
             {navItems.map(item => (
-              <button key={item.view}
-                onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", view: item.view })}
-                title={item.label}
-                className={`p-2 rounded-md hover:bg-accent/60 transition-colors ${
-                  state.activeView === item.view
-                    ? "text-primary bg-primary/10"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}>
-                {item.icon}
-              </button>
+              <Tooltip key={item.view}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", view: item.view })}
+                    className={`p-2 rounded-md hover:bg-accent/60 transition-colors ${
+                      state.activeView === item.view
+                        ? "text-primary bg-primary/10"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}>
+                    {item.icon}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="flex items-center gap-2">
+                  <span>{item.label}</span>
+                  {item.shortcut && (
+                    <kbd className="text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border font-mono">{item.shortcut}</kbd>
+                  )}
+                </TooltipContent>
+              </Tooltip>
             ))}
+
             {/* Dog Racing icon */}
-            <button
-              onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", view: "dog-racing" })}
-              title="Dog Racing"
-              className={`p-2 rounded-md hover:bg-accent/60 transition-colors text-[14px] leading-none ${
-                state.activeView === "dog-racing"
-                  ? "opacity-100 bg-primary/10"
-                  : "opacity-60 hover:opacity-100"
-              }`}>
-              🐕
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", view: "dog-racing" })}
+                  className={`p-2 rounded-md hover:bg-accent/60 transition-colors text-[14px] leading-none ${
+                    state.activeView === "dog-racing" ? "opacity-100 bg-primary/10" : "opacity-60 hover:opacity-100"
+                  }`}>
+                  🐕
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="flex items-center gap-2">
+                <span>Dog Racing</span>
+                <kbd className="text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border font-mono">⌘G</kbd>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
-          {/* User avatar + dropdown */}
+          {/* User avatar + notification badge + dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-1.5 px-1.5 py-1 rounded-md hover:bg-accent/60 transition-colors group">
-                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">
-                  АП
+              <button className="flex items-center gap-1.5 px-1.5 py-1 rounded-md hover:bg-accent/60 transition-colors group relative">
+                <div className="relative">
+                  <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary flex-shrink-0">
+                    АП
+                  </div>
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-500 flex items-center justify-center text-[8px] font-bold text-white leading-none">
+                      {notificationCount > 9 ? "9+" : notificationCount}
+                    </span>
+                  )}
                 </div>
                 <ChevronUp size={11} className="text-muted-foreground group-hover:text-foreground transition-colors" />
               </button>
@@ -274,8 +390,18 @@ export default function LeftPanel() {
                 <div className="text-[12px] font-medium text-foreground">Алексей Петров</div>
                 <div className="text-[11px] text-muted-foreground">alexey@company.ru · Супер-админ</div>
               </div>
+              {notificationCount > 0 && (
+                <>
+                  <DropdownMenuItem onClick={() => toast.info(`У вас ${notificationCount} новых события`)} className="text-amber-500 focus:text-amber-500">
+                    <span className="mr-2 text-[10px] font-bold bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center">{notificationCount}</span>
+                    Новые уведомления
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", view: "settings" })}>
                 <Settings size={13} className="mr-2" /> Настройки
+                <kbd className="ml-auto text-[10px] text-muted-foreground font-mono">⇧⌘,</kbd>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => toast.info("Язык интерфейса")}>
                 <Globe size={13} className="mr-2" /> Язык
