@@ -277,6 +277,13 @@ export default function LeftPanel() {
               placeholder="Поиск по задачам и проектам..."
               className="flex-1 bg-transparent text-[12px] text-foreground placeholder:text-muted-foreground outline-none"
             />
+            {searchQuery.trim().length > 0 && (
+              <span className="flex-shrink-0 mono text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">
+                {searchResults.length > 0
+                  ? `${searchResults.length} зад.`
+                  : "0"}
+              </span>
+            )}
             <kbd className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border font-mono">Esc</kbd>
           </div>
           <div className="max-h-48 overflow-y-auto">
