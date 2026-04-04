@@ -644,6 +644,7 @@ function InputCard({
   showModePicker, setShowModePicker, showModelPicker, setShowModelPicker,
   selectedModel, setSelectedModel, textareaRef, liveCost,
   agentIds, setAgentIds, collectiveModelIds, setCollectiveModelIds,
+  onAgentModelOverridesChange,
 }: {
   input: string;
   setInput: (v: string) => void;
@@ -666,6 +667,7 @@ function InputCard({
   setAgentIds: React.Dispatch<React.SetStateAction<string[]>>;
   collectiveModelIds: string[];
   setCollectiveModelIds: React.Dispatch<React.SetStateAction<string[]>>;
+  onAgentModelOverridesChange?: (overrides: Record<string, string>) => void;
 }) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -1117,7 +1119,9 @@ function InputCard({
                             {MODELS.map(m => (
                               <button key={m.id}
                                 onClick={() => {
-                                  setAgentModelOverrides(prev => ({ ...prev, [aid]: m.id }));
+                                  const newOverrides = { ...agentModelOverrides, [aid]: m.id };
+                                  setAgentModelOverrides(newOverrides);
+                                  onAgentModelOverridesChange?.(newOverrides);
                                   setShowModelPickerFor(null);
                                 }}
                                 className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors ${
@@ -1258,6 +1262,7 @@ export default function ChatPanel() {
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [agentIds, setAgentIds] = useState<string[]>(() => MODE_AGENTS["normal"] || ["coder"]);
   const [collectiveModelIds, setCollectiveModelIds] = useState<string[]>(COLLECTIVE_MODELS);
+  const [agentModelOverrides, setAgentModelOverrides] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Reset agents when mode changes (except manual/collective which keep user selection)
@@ -1332,7 +1337,7 @@ export default function ChatPanel() {
     };
     dispatch({ type: "ADD_MESSAGE", projectId: state.activeProjectId, taskId: state.activeTaskId, message: userMsg });
     dispatch({ type: "UPDATE_TASK_STATUS", projectId: state.activeProjectId, taskId: state.activeTaskId, status: "running" });
-    // Save agents used for this task
+    // Save agents used for this task (including per-agent model overrides from MANUAL mode)
     dispatch({
       type: "UPDATE_TASK_AGENTS",
       projectId: state.activeProjectId,
@@ -1340,6 +1345,7 @@ export default function ChatPanel() {
       agentIds: chatMode === "auto" ? autoAssignAgents(text) : agentIds,
       chatMode,
       collectiveModelIds: chatMode === "collective" ? collectiveModelIds : undefined,
+      agentModelOverrides: chatMode === "manual" && Object.keys(agentModelOverrides).length > 0 ? agentModelOverrides : undefined,
     });
     setInput("");
     setIsGenerating(true);
@@ -1569,6 +1575,7 @@ export default function ChatPanel() {
         setAgentIds={setAgentIds}
         collectiveModelIds={collectiveModelIds}
         setCollectiveModelIds={setCollectiveModelIds}
+        onAgentModelOverridesChange={setAgentModelOverrides}
       />
 
       {/* LEGACY input area — hidden, kept for reference */}

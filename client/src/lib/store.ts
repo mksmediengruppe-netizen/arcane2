@@ -38,7 +38,7 @@ export type AppAction =
   | { type: "EDIT_MESSAGE"; projectId: string; taskId: string; messageId: string; content: string }
   | { type: "DUPLICATE_TASK"; projectId: string; taskId: string }
   | { type: "PIN_TASK"; projectId: string; taskId: string }
-  | { type: "UPDATE_TASK_AGENTS"; projectId: string; taskId: string; agentIds: string[]; chatMode: string; collectiveModelIds?: string[] };
+  | { type: "UPDATE_TASK_AGENTS"; projectId: string; taskId: string; agentIds: string[]; chatMode: string; collectiveModelIds?: string[]; agentModelOverrides?: Record<string, string> };
 
 // Read saved theme from localStorage, default to "dark"
 const savedTheme = (typeof window !== "undefined" && (localStorage.getItem("arcane-theme") as "dark" | "light")) || "dark";
@@ -226,16 +226,23 @@ export function appReducer(state: AppState, action: AppAction): AppState {
               analyst: "gpt-5.4",
               tester: "gemini-2.5-flash",
             };
-            const usedAgents = action.agentIds.map(agentId => ({
-              agentId,
-              modelId: AGENT_MODEL_MAP[agentId] ?? "claude-sonnet-4.6",
-              addedAt: now,
-            }));
+            const overrides = action.agentModelOverrides ?? {};
+            const usedAgents = action.agentIds.map(agentId => {
+              const defaultModel = AGENT_MODEL_MAP[agentId] ?? "claude-sonnet-4.6";
+              const overriddenModel = overrides[agentId];
+              return {
+                agentId,
+                modelId: overriddenModel ?? defaultModel,
+                modelOverridden: !!overriddenModel && overriddenModel !== defaultModel,
+                addedAt: now,
+              };
+            });
             return {
               ...t,
               usedAgents,
               chatMode: action.chatMode,
               collectiveModelIds: action.collectiveModelIds,
+              agentModelOverrides: Object.keys(overrides).length > 0 ? overrides : undefined,
             };
           }),
         };

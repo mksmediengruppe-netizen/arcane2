@@ -258,12 +258,17 @@ export default function RightPanel() {
                       tester:       { label: "Тестировщик",  icon: "🧪", color: "text-red-400" },
                     };
                     const meta = AGENT_META[rec.agentId] || { label: rec.agentId, icon: "🤖", color: "text-muted-foreground" };
+                    const modelShort = rec.modelId.replace("claude-", "C.").replace("gpt-", "G.").replace("gemini-", "Gm.").replace("deepseek-", "DS.");
                     return (
                       <div key={rec.agentId}
-                        title={`${meta.label} → ${rec.modelId}`}
-                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-accent/30 ${meta.color}`}>
-                        <span>{meta.icon}</span>
-                        <span className="text-muted-foreground">{meta.label}</span>
+                        title={`${meta.label} → ${rec.modelId}${rec.modelOverridden ? " (изменена вручную)" : ""}`}
+                        className={`flex flex-col px-1.5 py-1 rounded text-[10px] bg-accent/30 border ${rec.modelOverridden ? "border-amber-500/30" : "border-transparent"}`}>
+                        <div className={`flex items-center gap-1 ${meta.color}`}>
+                          <span>{meta.icon}</span>
+                          <span className="font-medium">{meta.label}</span>
+                          {rec.modelOverridden && <span className="text-amber-400 text-[8px]">✎</span>}
+                        </div>
+                        <div className="text-[9px] text-muted-foreground/60 mt-0.5">{modelShort}</div>
                       </div>
                     );
                   })}

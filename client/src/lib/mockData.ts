@@ -27,11 +27,13 @@ export interface Task {
   usedAgents?: UsedAgentRecord[]; // agents that participated in this task
   chatMode?: string;              // mode used when task was sent
   collectiveModelIds?: string[];  // models used in collective mode
+  agentModelOverrides?: Record<string, string>; // manual model overrides per agent (MANUAL mode)
 }
 
 export interface UsedAgentRecord {
   agentId: string;    // e.g. "coder"
-  modelId: string;    // e.g. "deepseek-v3.2"
+  modelId: string;    // resolved model (default or overridden)
+  modelOverridden: boolean; // true if user manually changed the model in MANUAL mode
   addedAt: string;    // ISO timestamp
 }
 
