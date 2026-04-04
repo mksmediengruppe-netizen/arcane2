@@ -7,6 +7,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { X, FileCode, Terminal, FileText, Globe, Brain, ChevronLeft, Copy, Check, Download, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { marked } from "marked";
 
 // ── Step payload type ─────────────────────────────────────────────────────────
 export interface StepPayload {
@@ -349,11 +350,67 @@ function useHtmlPreview(step: StepPayload) {
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank", "noopener");
-    // Revoke after a short delay to allow the new tab to load
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
     toast.success("Открыт превью HTML", { duration: 1800 });
   }, [step]);
   return { isHtml, preview };
+}
+
+// ── Markdown preview hook ────────────────────────────────────────────────────────────────
+const MD_PREVIEW_STYLE = `
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    max-width: 860px; margin: 0 auto; padding: 2.5rem 2rem;
+    background: #0f1117; color: #e2e8f0;
+    line-height: 1.75;
+  }
+  h1, h2, h3, h4 { color: #f8fafc; font-weight: 700; margin-top: 2rem; margin-bottom: 0.75rem; }
+  h1 { font-size: 2rem; border-bottom: 1px solid #334155; padding-bottom: 0.5rem; }
+  h2 { font-size: 1.4rem; border-bottom: 1px solid #1e293b; padding-bottom: 0.35rem; }
+  h3 { font-size: 1.1rem; }
+  p { margin: 0.75rem 0; }
+  a { color: #818cf8; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    background: #1e293b; color: #a5f3fc;
+    padding: 0.15em 0.4em; border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.875em;
+  }
+  pre {
+    background: #1e293b; border: 1px solid #334155;
+    border-radius: 8px; padding: 1.25rem; overflow-x: auto;
+    margin: 1.25rem 0;
+  }
+  pre code { background: none; padding: 0; color: #e2e8f0; }
+  blockquote {
+    border-left: 3px solid #6366f1; margin: 1rem 0;
+    padding: 0.5rem 1rem; background: #1e293b; border-radius: 0 6px 6px 0;
+    color: #94a3b8;
+  }
+  ul, ol { padding-left: 1.5rem; margin: 0.75rem 0; }
+  li { margin: 0.35rem 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1.25rem 0; }
+  th { background: #1e293b; color: #f8fafc; padding: 0.6rem 1rem; text-align: left; }
+  td { padding: 0.5rem 1rem; border-bottom: 1px solid #1e293b; }
+  tr:hover td { background: #0f172a; }
+  hr { border: none; border-top: 1px solid #334155; margin: 2rem 0; }
+  img { max-width: 100%; border-radius: 8px; }
+`;
+
+function useMarkdownPreview(step: StepPayload) {
+  const isMd = (step.lang || "") === "markdown";
+  const preview = useCallback(async () => {
+    const md = step.lines.join("\n");
+    const body = await marked.parse(md);
+    const title = step.file ? step.file.split("/").pop() || step.file : "Preview";
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${title}</title><style>${MD_PREVIEW_STYLE}</style></head><body>${body}</body></html>`;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener");
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    toast.success("Открыт превью Markdown", { duration: 1800 });
+  }, [step]);
+  return { isMd, preview };
 }
 
 // ── Copy hook ────────────────────────────────────────────────────────────────
@@ -389,7 +446,8 @@ function CodeView({
   const visibleCount = compact ? 7 : 999;
   const { copied, copy } = useCopyCode(step.lines);
   const { download } = useDownloadCode(step);
-  const { isHtml, preview } = useHtmlPreview(step);
+  const { isHtml, preview: htmlPreview } = useHtmlPreview(step);
+  const { isMd, preview: mdPreview } = useMarkdownPreview(step);
 
   return (
     <div className="flex flex-col h-full" style={{ background: "oklch(0.115 0.008 265)" }}>
@@ -415,9 +473,17 @@ function CodeView({
           <div className="flex items-center gap-0.5 ml-1">
             {isHtml && (
               <button
-                onClick={preview}
+                onClick={htmlPreview}
                 title="Открыть HTML в новой вкладке"
                 className="p-1 rounded transition-all duration-150 text-sky-500 hover:text-sky-300 hover:bg-sky-500/10">
+                <ExternalLink size={11} />
+              </button>
+            )}
+            {isMd && (
+              <button
+                onClick={mdPreview}
+                title="Открыть Markdown превью"
+                className="p-1 rounded transition-all duration-150 text-violet-400 hover:text-violet-200 hover:bg-violet-500/10">
                 <ExternalLink size={11} />
               </button>
             )}
@@ -527,6 +593,20 @@ function PortalHtmlPreviewButton({ step }: { step: StepPayload }) {
       onClick={preview}
       title="Открыть HTML в новой вкладке"
       className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all duration-150 text-sky-400 hover:text-sky-200 hover:bg-sky-500/10">
+      <ExternalLink size={11} />
+      <span className="font-mono">Preview</span>
+    </button>
+  );
+}
+
+function PortalMarkdownPreviewButton({ step }: { step: StepPayload }) {
+  const { isMd, preview } = useMarkdownPreview(step);
+  if (!isMd) return null;
+  return (
+    <button
+      onClick={preview}
+      title="Открыть Markdown превью"
+      className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all duration-150 text-violet-400 hover:text-violet-200 hover:bg-violet-500/10">
       <ExternalLink size={11} />
       <span className="font-mono">Preview</span>
     </button>
@@ -649,6 +729,25 @@ export default function LiveCodePreview({
                 <span>Preview</span>
               </button>
             )}
+            {(activeStep.lang || "") === "markdown" && (
+              <button
+                onClick={async () => {
+                  const md = activeStep.lines.join("\n");
+                  const body = await marked.parse(md);
+                  const title = activeStep.file ? activeStep.file.split("/").pop() || activeStep.file : "Preview";
+                  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${title}</title><style>${MD_PREVIEW_STYLE}</style></head><body>${body}</body></html>`;
+                  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  window.open(url, "_blank", "noopener");
+                  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+                  toast.success("Открыт превью Markdown", { duration: 1800 });
+                }}
+                title="Открыть Markdown превью"
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] text-violet-400 hover:text-violet-200 transition-colors">
+                <ExternalLink size={11} />
+                <span>Preview</span>
+              </button>
+            )}
             <button
               onClick={expandedDownload}
               title={`Скачать ${getDownloadFilename(activeStep)}`}
@@ -733,9 +832,10 @@ export default function LiveCodePreview({
               <div className="flex items-center gap-1.5">
                 {isStreaming && <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /><span className="text-[9px] text-emerald-400 font-mono tracking-wide">LIVE</span></>}
               </div>
-              {/* HTML Preview + Download + Copy buttons in portal overlay */}
+              {/* HTML / MD Preview + Download + Copy buttons in portal overlay */}
               <div className="flex items-center gap-0.5">
                 <PortalHtmlPreviewButton step={activeStep} />
+                <PortalMarkdownPreviewButton step={activeStep} />
                 <PortalDownloadButton step={activeStep} />
                 <PortalCopyButton lines={activeStep.lines} />
               </div>
