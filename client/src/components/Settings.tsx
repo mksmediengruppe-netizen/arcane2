@@ -565,7 +565,7 @@ export default function Settings() {
             <p className="text-[12px] text-muted-foreground mb-5">Основные параметры системы</p>
             <div className="space-y-3">
               {[
-                { label: "Название системы", value: "Arcane 2" },
+                { label: "Название системы", value: "Arcane AI" },
                 { label: "Часовой пояс", value: "Europe/Moscow" },
                 { label: "Валюта", value: "USD" },
               ].map(item => (

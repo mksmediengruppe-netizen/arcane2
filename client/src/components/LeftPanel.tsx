@@ -430,7 +430,7 @@ export default function LeftPanel() {
           <div className="w-6 h-6 rounded bg-primary/20 flex items-center justify-center">
             <Zap size={12} className="text-primary" />
           </div>
-          <span className="font-semibold text-[13px] text-foreground">Arcane 2</span>
+          <span className="font-semibold text-[13px] text-foreground">Arcane AI</span>
         </div>
         <button onClick={() => dispatch({ type: "TOGGLE_LEFT_PANEL" })}
           className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">

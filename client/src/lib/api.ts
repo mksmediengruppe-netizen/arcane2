@@ -222,6 +222,23 @@ export class ApiError extends Error {
   constructor(public status: number, msg: string) { super(msg); this.name = 'ApiError'; }
 }
 
+// Sanitize error messages to avoid leaking internal details or model names
+export function sanitizeErrorMessage(msg: string): string {
+  if (!msg) return 'Ошибка выполнения';
+  // Strip model provider names
+  const sanitized = msg
+    .replace(/openai|anthropic|google|mistral|cohere|openrouter/gi, 'AI')
+    .replace(/gpt-[\w.-]+/gi, 'AI model')
+    .replace(/claude-[\w.-]+/gi, 'AI model')
+    .replace(/gemini-[\w.-]+/gi, 'AI model')
+    .replace(/sk-or-v1-[\w]+/gi, '[key]')
+    .replace(/sk-[\w]{20,}/gi, '[key]')
+    .replace(/Bearer [\w.-]+/gi, 'Bearer [token]')
+    .replace(/\/root\/arcane2[^\s]*/gi, '[path]')
+    .replace(/\/home\/[^\s]*/gi, '[path]');
+  return sanitized;
+}
+
 async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -239,7 +256,7 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     try { const b = await res.json(); msg = b.detail || b.error || b.message || msg; } catch { /* */ }
-    throw new ApiError(res.status, msg);
+    throw new ApiError(res.status, sanitizeErrorMessage(msg));
   }
   if (res.status === 204) return undefined as unknown as T;
   return res.json();

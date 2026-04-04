@@ -22,7 +22,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(loginId, password);
-      toast.success('Добро пожаловать в Arcane 2');
+      toast.success('Добро пожаловать в Arcane AI');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ошибка авторизации');
     } finally {
@@ -39,7 +39,7 @@ export default function LoginPage() {
             <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
               <Zap size={18} className="text-primary" />
             </div>
-            <span className="text-xl font-bold text-foreground">Arcane 2</span>
+            <span className="text-xl font-bold text-foreground">Arcane AI</span>
           </div>
           <p className="text-sm text-muted-foreground">Autonomous AI Agency Platform</p>
         </div>
@@ -104,7 +104,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-[11px] text-muted-foreground/50 mt-4">
-          Arcane 2 &copy; 2026 MKS Mediengruppe / Netizen
+          Arcane AI &copy; 2026 MKS Mediengruppe / Netizen
         </p>
       </div>
     </div>
