@@ -463,13 +463,13 @@ function autoAssignAgents(text: string): string[] {
   return agents;
 }
 
-function CollectiveBlock({ query }: { query: string }) {
+function CollectiveBlock({ query, synthModelId }: { query: string; synthModelId?: string }) {
   const [expanded, setExpanded] = useState(false);
   const opinions = COLLECTIVE_MODELS.map(mid => {
     const m = MODELS.find(x => x.id === mid)!;
     return { model: m, text: `Краткое мнение от ${m.name}: рекомендую подход через ${mid.includes("claude") ? "функциональную декомпозицию" : mid.includes("gpt") ? "объектно-ориентированную архитектуру" : "минималистичный алгоритм"}.` };
   });
-  const synth = MODELS.find(m => m.id === COLLECTIVE_SYNTH)!;
+  const synth = MODELS.find(m => m.id === (synthModelId || COLLECTIVE_SYNTH)) || MODELS.find(m => m.id === COLLECTIVE_SYNTH)!;
   return (
     <div className="collective-block my-3">
       <div className="flex items-center gap-2 mb-3">
@@ -644,6 +644,7 @@ function InputCard({
   showModePicker, setShowModePicker, showModelPicker, setShowModelPicker,
   selectedModel, setSelectedModel, textareaRef, liveCost,
   agentIds, setAgentIds, collectiveModelIds, setCollectiveModelIds,
+  collectiveSynthModel, setCollectiveSynthModel,
   onAgentModelOverridesChange,
 }: {
   input: string;
@@ -667,6 +668,8 @@ function InputCard({
   setAgentIds: React.Dispatch<React.SetStateAction<string[]>>;
   collectiveModelIds: string[];
   setCollectiveModelIds: React.Dispatch<React.SetStateAction<string[]>>;
+  collectiveSynthModel: string;
+  setCollectiveSynthModel: (v: string) => void;
   onAgentModelOverridesChange?: (overrides: Record<string, string>) => void;
 }) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -677,6 +680,7 @@ function InputCard({
   const [voiceSupported] = useState(() => typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window));
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [showCollectivePicker, setShowCollectivePicker] = useState(false);
+  const [showSynthPicker, setShowSynthPicker] = useState(false);
   // Per-agent model overrides (MANUAL mode only)
   const [agentModelOverrides, setAgentModelOverrides] = useState<Record<string, string>>({});
   const [showModelPickerFor, setShowModelPickerFor] = useState<string | null>(null);
@@ -1231,7 +1235,58 @@ function InputCard({
                     )}
                   </div>
                 )}
-                <span className="text-[10px] text-muted-foreground/50">+ синтез</span>
+                {/* Synth model picker */}
+                <div className="relative">
+                  {collectiveSynthModel ? (
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 group">
+                      <span className="text-[10px]" style={{ color: MODELS.find(m => m.id === collectiveSynthModel)?.color }}>{MODELS.find(m => m.id === collectiveSynthModel)?.icon}</span>
+                      <span className="text-[10px] text-amber-400 font-medium">{MODELS.find(m => m.id === collectiveSynthModel)?.name}</span>
+                      <span className="text-[9px] text-amber-400/60">синтез</span>
+                      <button
+                        onClick={() => setShowSynthPicker(v => !v)}
+                        className="ml-0.5 text-[9px] text-amber-400/50 hover:text-amber-400 transition-colors">
+                        ✎
+                      </button>
+                      <button
+                        onClick={() => setCollectiveSynthModel("")}
+                        className="opacity-0 group-hover:opacity-100 ml-0.5 hover:text-red-400 transition-all text-muted-foreground">
+                        <X size={8} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowSynthPicker(v => !v)}
+                      className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] text-amber-400/50 hover:text-amber-400 hover:bg-amber-500/10 border border-dashed border-amber-500/30 transition-colors">
+                      <Plus size={9} />
+                      <span>синтез</span>
+                    </button>
+                  )}
+                  {showSynthPicker && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowSynthPicker(false)} />
+                      <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[220px] max-h-48 overflow-y-auto">
+                        <div className="px-3 py-1.5 border-b border-border/50 mb-1">
+                          <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider">Модель-синтезатор</span>
+                          <div className="text-[9px] text-muted-foreground mt-0.5">Консолидирует ответы всех агентов</div>
+                        </div>
+                        {MODELS.map(m => (
+                          <button key={m.id}
+                            onClick={() => { setCollectiveSynthModel(m.id); setShowSynthPicker(false); }}
+                            className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors ${
+                              collectiveSynthModel === m.id ? "bg-amber-500/10" : ""
+                            }`}>
+                            <span className="text-[12px]" style={{ color: m.color }}>{m.icon}</span>
+                            <div className="flex-1 text-left">
+                              <div className="text-[11px] text-foreground">{m.name}</div>
+                              <div className="text-[9px] text-muted-foreground">{m.provider}</div>
+                            </div>
+                            {collectiveSynthModel === m.id && <span className="text-[9px] text-amber-400">✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </>
           )}
@@ -1262,6 +1317,7 @@ export default function ChatPanel() {
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [agentIds, setAgentIds] = useState<string[]>(() => MODE_AGENTS["normal"] || ["coder"]);
   const [collectiveModelIds, setCollectiveModelIds] = useState<string[]>(COLLECTIVE_MODELS);
+  const [collectiveSynthModel, setCollectiveSynthModel] = useState<string>(COLLECTIVE_SYNTH);
   const [agentModelOverrides, setAgentModelOverrides] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -1354,8 +1410,9 @@ export default function ChatPanel() {
     stopRef.current = false;
     setShowFollowUp(false);
 
+    const activeSynth = chatMode === "collective" ? (collectiveSynthModel || COLLECTIVE_SYNTH) : selectedModel;
     const fullText = chatMode === "collective"
-      ? "[COLLECTIVE]" + simulateResponse(activeTask?.name || "задача", COLLECTIVE_SYNTH)
+      ? "[COLLECTIVE]" + simulateResponse(activeTask?.name || "задача", activeSynth)
       : simulateResponse(activeTask?.name || "задача", selectedModel);
 
     const model = MODELS.find(m => m.id === selectedModel);
@@ -1368,7 +1425,7 @@ export default function ChatPanel() {
         const finalCost = parseFloat((fullText.length * costPerChar).toFixed(4));
         const aiMsg: Message = {
           id: `m${Date.now()}`, role: "assistant",
-          model: chatMode === "collective" ? COLLECTIVE_SYNTH : selectedModel,
+          model: chatMode === "collective" ? activeSynth : selectedModel,
           content: chatMode === "collective" ? fullText.replace("[COLLECTIVE]", "") : fullText,
           timestamp: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
           tokens: { in: Math.floor(Math.random() * 1000 + 500), out: Math.floor(fullText.length / 4) },
@@ -1509,7 +1566,7 @@ export default function ChatPanel() {
                 <div className="mb-3">
                   <LiveCodePreview isGenerating={isGenerating} />
                 </div>
-                {chatMode === "collective" && <CollectiveBlock query={input} />}
+                {chatMode === "collective" && <CollectiveBlock query={input} synthModelId={collectiveSynthModel} />}
                 <div className="text-[13px] leading-relaxed text-foreground">
                   <Streamdown>{streamingText.replace("[COLLECTIVE]", "")}</Streamdown>
                   <span className="inline-block w-0.5 h-3.5 bg-primary animate-pulse ml-0.5 align-middle" />
@@ -1575,6 +1632,8 @@ export default function ChatPanel() {
         setAgentIds={setAgentIds}
         collectiveModelIds={collectiveModelIds}
         setCollectiveModelIds={setCollectiveModelIds}
+        collectiveSynthModel={collectiveSynthModel}
+        setCollectiveSynthModel={setCollectiveSynthModel}
         onAgentModelOverridesChange={setAgentModelOverrides}
       />
 
@@ -1647,7 +1706,16 @@ export default function ChatPanel() {
           {chatMode === "collective" && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 border border-primary/20">
               <Brain size={11} className="text-primary" />
-              <span className="text-[11px] text-primary">{COLLECTIVE_MODELS.length} моделей + синтез</span>
+              <span className="text-[11px] text-primary">{collectiveModelIds.length} моделей</span>
+              {collectiveSynthModel && (
+                <>
+                  <span className="text-primary/40">→</span>
+                  <span className="text-[10px]" style={{ color: MODELS.find(m => m.id === collectiveSynthModel)?.color }}>
+                    {MODELS.find(m => m.id === collectiveSynthModel)?.icon}
+                  </span>
+                  <span className="text-[11px] text-amber-400">{MODELS.find(m => m.id === collectiveSynthModel)?.name}</span>
+                </>
+              )}
             </div>
           )}
         </div>
