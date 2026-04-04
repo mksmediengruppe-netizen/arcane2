@@ -689,6 +689,7 @@ function InputCard({
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [showCollectivePicker, setShowCollectivePicker] = useState(false);
   const [showSynthPicker, setShowSynthPicker] = useState(false);
+  const [replaceModelId, setReplaceModelId] = useState<string | null>(null); // mid being replaced in collective
   // Per-agent model overrides (MANUAL mode only)
   const [agentModelOverrides, setAgentModelOverrides] = useState<Record<string, string>>({});
   const [showModelPickerFor, setShowModelPickerFor] = useState<string | null>(null);
@@ -1298,8 +1299,10 @@ function InputCard({
                 {collectiveModelIds.map(mid => {
                   const m = MODELS.find(x => x.id === mid);
                   if (!m) return null;
+                  const isReplacing = replaceModelId === mid;
                   return (
-                    <HoverCard key={mid} openDelay={300} closeDelay={100}>
+                    <HoverCard key={mid} openDelay={300} closeDelay={isReplacing ? 99999 : 100}
+                      onOpenChange={open => { if (!open) setReplaceModelId(null); }}>
                       <div className="relative group">
                         <HoverCardTrigger asChild>
                           <div className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 border border-primary/20 cursor-default">
@@ -1312,39 +1315,84 @@ function InputCard({
                             </button>
                           </div>
                         </HoverCardTrigger>
-                        <HoverCardContent side="top" align="start" className="w-60 p-0 overflow-hidden">
-                          <div className="px-3 py-2.5 flex items-center gap-2 border-b border-border/50 bg-accent/20">
-                            <span className="text-[16px]" style={{ color: m.color }}>{m.icon}</span>
-                            <div>
-                              <div className="text-[12px] font-semibold text-foreground">{m.name}</div>
-                              <div className="text-[10px] text-muted-foreground">{m.provider}</div>
-                            </div>
-                          </div>
-                          {m.superpower && (
-                            <div className="px-3 py-2 text-[11px] text-muted-foreground border-b border-border/50">
-                              ⚡ {m.superpower}
-                            </div>
+                        <HoverCardContent side="top" align="start" className="p-0 overflow-hidden"
+                          style={{ width: isReplacing ? 240 : 240 }}>
+                          {isReplacing ? (
+                            /* ── Inline replace picker ── */
+                            <>
+                              <div className="px-3 py-2 flex items-center justify-between border-b border-border/50 bg-accent/20">
+                                <span className="text-[11px] font-semibold text-foreground">Заменить модель</span>
+                                <button onClick={() => setReplaceModelId(null)}
+                                  className="text-muted-foreground hover:text-foreground transition-colors">
+                                  <X size={12} />
+                                </button>
+                              </div>
+                              <div className="max-h-52 overflow-y-auto py-1">
+                                {MODELS.filter(opt => opt.id !== mid && !collectiveModelIds.includes(opt.id)).map(opt => (
+                                  <button key={opt.id}
+                                    onClick={() => {
+                                      setCollectiveModelIds(prev => prev.map(id => id === mid ? opt.id : id));
+                                      setReplaceModelId(null);
+                                    }}
+                                    className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors">
+                                    <span className="text-[13px]" style={{ color: opt.color }}>{opt.icon}</span>
+                                    <div className="flex-1 text-left">
+                                      <div className="text-[11px] text-foreground">{opt.name}</div>
+                                      <div className="text-[9px] text-muted-foreground">
+                                        {opt.isFree ? <span className="text-emerald-400">✓ Free</span> : `${opt.provider} · $${opt.costIn}/$${opt.costOut}`}
+                                      </div>
+                                    </div>
+                                    {opt.swe != null && <span className="text-[9px] text-muted-foreground/60">{opt.swe}%</span>}
+                                  </button>
+                                ))}
+                                {MODELS.filter(opt => opt.id !== mid && !collectiveModelIds.includes(opt.id)).length === 0 && (
+                                  <div className="px-3 py-3 text-[11px] text-muted-foreground/50 text-center">Все модели уже добавлены</div>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            /* ── Normal info view ── */
+                            <>
+                              <div className="px-3 py-2.5 flex items-center gap-2 border-b border-border/50 bg-accent/20">
+                                <span className="text-[16px]" style={{ color: m.color }}>{m.icon}</span>
+                                <div className="flex-1">
+                                  <div className="text-[12px] font-semibold text-foreground">{m.name}</div>
+                                  <div className="text-[10px] text-muted-foreground">{m.provider}</div>
+                                </div>
+                                <button
+                                  onClick={() => setReplaceModelId(mid)}
+                                  className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] bg-primary/10 text-primary hover:bg-primary/20 transition-colors border border-primary/20">
+                                  <Pencil size={9} />
+                                  Заменить
+                                </button>
+                              </div>
+                              {m.superpower && (
+                                <div className="px-3 py-2 text-[11px] text-muted-foreground border-b border-border/50">
+                                  ⚡ {m.superpower}
+                                </div>
+                              )}
+                              <div className="px-3 py-2 grid grid-cols-3 gap-2">
+                                <div className="text-center">
+                                  <div className="text-[10px] text-muted-foreground/60 mb-0.5">Стоимость</div>
+                                  <div className="text-[11px] font-medium text-foreground">
+                                    {m.isFree ? <span className="text-emerald-400">✓ Free</span> : `$${m.costIn}/$${m.costOut}`}
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-[10px] text-muted-foreground/60 mb-0.5">SWE</div>
+                                  <div className="text-[11px] font-medium text-foreground">
+                                    {m.swe != null ? `${m.swe}%` : <span className="text-muted-foreground/40">—</span>}
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-[10px] text-muted-foreground/60 mb-0.5">Контекст</div>
+                                  <div className="text-[11px] font-medium text-foreground">
+                                    {m.context != null ? `${m.context}K` : <span className="text-muted-foreground/40">∞</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            </>
                           )}
-                          <div className="px-3 py-2 grid grid-cols-3 gap-2">
-                            <div className="text-center">
-                              <div className="text-[10px] text-muted-foreground/60 mb-0.5">Стоимость</div>
-                              <div className="text-[11px] font-medium text-foreground">
-                                {m.isFree ? <span className="text-emerald-400">✓ Free</span> : `$${m.costIn}/$${m.costOut}`}
-                              </div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-[10px] text-muted-foreground/60 mb-0.5">SWE</div>
-                              <div className="text-[11px] font-medium text-foreground">
-                                {m.swe != null ? `${m.swe}%` : <span className="text-muted-foreground/40">—</span>}
-                              </div>
-                            </div>
-                            <div className="text-center">
-                              <div className="text-[10px] text-muted-foreground/60 mb-0.5">Контекст</div>
-                              <div className="text-[11px] font-medium text-foreground">
-                                {m.context != null ? `${m.context}K` : <span className="text-muted-foreground/40">∞</span>}
-                              </div>
-                            </div>
-                          </div>
                         </HoverCardContent>
                       </div>
                     </HoverCard>
