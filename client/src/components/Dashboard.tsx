@@ -2,7 +2,7 @@
 import { useApp } from "@/contexts/AppContext";
 import { DASHBOARD_DAILY, DASHBOARD_MODELS, DASHBOARD_PROJECTS, formatCostShort } from "@/lib/mockData";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
-import { TrendingUp, DollarSign, Zap, Clock } from "lucide-react";
+import { TrendingUp, DollarSign, Zap, Clock, Download } from "lucide-react";
 
 const CHART_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4"];
 
@@ -36,6 +36,24 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
+function exportCSV(state: ReturnType<typeof useApp>["state"]) {
+  const rows: string[] = [
+    "\uFEFFПроект,Задача,Статус,Стоимость ($),Длительность,Модель,Дата"
+  ];
+  state.projects.forEach(p => {
+    p.tasks.forEach(t => {
+      rows.push(`"${p.name}","${t.name}",${t.status},${t.cost.toFixed(4)},${t.duration},${t.model},${t.createdAt}`);
+    });
+  });
+  const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `arcane2-report-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Dashboard() {
   const { state } = useApp();
   const totalSpent = state.projects.reduce((s, p) => s + p.tasks.reduce((ts, t) => ts + t.cost, 0), 0);
@@ -45,8 +63,16 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       <div className="px-6 py-4 border-b border-border flex-shrink-0">
-        <h2 className="text-[15px] font-semibold text-foreground">Дашборд</h2>
-        <p className="text-[12px] text-muted-foreground">Аналитика расходов и использования за последние 7 дней</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-[15px] font-semibold text-foreground">Дашборд</h2>
+            <p className="text-[12px] text-muted-foreground">Аналитика расходов и использования за последние 7 дней</p>
+          </div>
+          <button onClick={() => exportCSV(state)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-[12px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+            <Download size={13} /> Экспорт CSV
+          </button>
+        </div>
       </div>
 
       <div className="p-6 space-y-6">
@@ -114,6 +140,55 @@ export default function Dashboard() {
                 <Bar dataKey="cost" fill="#3B82F6" radius={[0, 3, 3, 0]} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Dog Racing stats */}
+        {state.races.length > 0 && (
+          <div className="bg-card border border-border rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-border">
+              <h3 className="text-[12px] font-semibold text-foreground">🐕 Dog Racing — Последние гонки</h3>
+            </div>
+            <div className="p-4 space-y-2">
+              {state.races.slice(-3).reverse().map((race, i) => (
+                <div key={race.id} className="flex items-center gap-4 py-2 border-b border-border/30 last:border-0">
+                  <span className="text-[10px] text-muted-foreground/50 w-4">{i + 1}</span>
+                  <div className="flex-1">
+                    <div className="text-[11px] text-foreground">{race.task.slice(0, 60)}{race.task.length > 60 ? "..." : ""}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">{race.runners.length} моделей участвовало</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[11px] font-medium text-emerald-400">🏆 {race.runners[0]?.modelId}</div>
+                    <div className="mono text-[10px] text-muted-foreground">{race.runners[0]?.score.toFixed(1)}/10</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Connectors */}
+        <div className="bg-card border border-border rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <h3 className="text-[12px] font-semibold text-foreground">Коннекторы</h3>
+            <span className="text-[10px] text-muted-foreground">Интеграции с внешними сервисами</span>
+          </div>
+          <div className="p-4 grid grid-cols-4 gap-3">
+            {[
+              { name: "GitHub",   icon: "🐛", status: "connected",    desc: "3 репозитория" },
+              { name: "Jira",     icon: "📋", status: "connected",    desc: "2 проекта" },
+              { name: "Slack",    icon: "💬", status: "disconnected", desc: "Не подключён" },
+              { name: "Notion",   icon: "📝", status: "disconnected", desc: "Не подключён" },
+            ].map(c => (
+              <div key={c.name} className="flex items-center gap-3 p-3 bg-background border border-border rounded-lg hover:border-primary/30 transition-colors cursor-pointer">
+                <span className="text-[18px]">{c.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12px] font-medium text-foreground">{c.name}</div>
+                  <div className="text-[10px] text-muted-foreground">{c.desc}</div>
+                </div>
+                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${c.status === "connected" ? "bg-emerald-400" : "bg-zinc-600"}`} />
+              </div>
+            ))}
           </div>
         </div>
 

@@ -23,6 +23,7 @@ export interface Task {
   model: string;
   messages: Message[];
   createdAt: string;
+  pinned?: boolean;
 }
 
 export interface Project {

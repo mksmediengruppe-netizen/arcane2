@@ -1,6 +1,6 @@
 // === PLAYBOOKS & SCHEDULE ===
-import { useState } from "react";
-import { BookOpen, Plus, Play, Clock, Calendar, ChevronRight, Trash2 } from "lucide-react";
+import { useState, useMemo } from "react";
+import { BookOpen, Plus, Play, Clock, Calendar, ChevronRight, Trash2, Search, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { MODELS } from "@/lib/mockData";
 
@@ -9,6 +9,8 @@ const MOCK_PLAYBOOKS = [
   { id: "pb2", name: "Code Review Python", category: "review", model: "claude-opus-4.6", prompt: "Проведи code review предоставленного Python кода. Найди уязвимости, нарушения PEP8, возможности оптимизации. Оцени покрытие тестами.", runs: 8, avgCost: 1.24 },
   { id: "pb3", name: "Генерация SEO-текстов", category: "text", model: "gpt-5.4", prompt: "Напиши SEO-оптимизированный текст для страницы. Включи ключевые слова, мета-описание, заголовки H1-H3. Объём 1500-2000 слов.", runs: 25, avgCost: 0.34 },
   { id: "pb4", name: "Настройка CI/CD", category: "devops", model: "deepseek-v3.2", prompt: "Настрой GitHub Actions для автоматического деплоя. Включи: тесты, линтер, сборку Docker образа, деплой на сервер.", runs: 5, avgCost: 0.45 },
+  { id: "pb5", name: "Анализ производительности API", category: "backend", model: "deepseek-v3.2", prompt: "Проанализируй производительность API: найди медленные эндпоинты, предложи оптимизацию запросов, кэширование.", runs: 3, avgCost: 0.28 },
+  { id: "pb6", name: "Документация проекта", category: "text", model: "claude-sonnet-4.6", prompt: "Сгенерируй README.md для проекта: описание, установка, примеры использования, API документация.", runs: 18, avgCost: 0.56 },
 ];
 
 const MOCK_SCHEDULE = [
@@ -25,6 +27,14 @@ export function PlaybooksView() {
   const [playbooks, setPlaybooks] = useState(MOCK_PLAYBOOKS);
   const [showNew, setShowNew] = useState(false);
   const [newPb, setNewPb] = useState({ name: "", category: "backend", model: "claude-sonnet-4.6", prompt: "" });
+  const [search, setSearch] = useState("");
+  const [filterCat, setFilterCat] = useState<string>("all");
+
+  const filtered = useMemo(() => playbooks.filter(pb => {
+    const matchSearch = pb.name.toLowerCase().includes(search.toLowerCase()) || pb.prompt.toLowerCase().includes(search.toLowerCase());
+    const matchCat = filterCat === "all" || pb.category === filterCat;
+    return matchSearch && matchCat;
+  }), [playbooks, search, filterCat]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -39,6 +49,25 @@ export function PlaybooksView() {
           className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary/80 text-primary-foreground rounded-lg text-[12px] transition-colors">
           <Plus size={12} /> Новый плейбук
         </button>
+      </div>
+
+      {/* Search and filter bar */}
+      <div className="px-6 py-2.5 border-b border-border flex items-center gap-3 flex-shrink-0">
+        <div className="relative flex-1 max-w-xs">
+          <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Поиск плейбуков..."
+            className="w-full pl-7 pr-3 py-1.5 bg-input border border-border rounded-lg text-[12px] text-foreground placeholder:text-muted-foreground/50 outline-none focus:border-primary/50" />
+        </div>
+        <div className="flex gap-1.5">
+          {[{ id: "all", label: "Все" }, ...Object.entries(CATEGORY_LABELS).map(([k, v]) => ({ id: k, label: v }))].map(c => (
+            <button key={c.id} onClick={() => setFilterCat(c.id)}
+              className={`px-2.5 py-1 rounded-md text-[11px] transition-colors ${filterCat === c.id ? "bg-primary text-primary-foreground" : "bg-accent/50 hover:bg-accent text-muted-foreground hover:text-foreground"}`}>
+              {c.label}
+            </button>
+          ))}
+        </div>
+        <span className="text-[11px] text-muted-foreground ml-auto">{filtered.length} плейбуков</span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6 space-y-3">
@@ -73,7 +102,7 @@ export function PlaybooksView() {
           </div>
         )}
 
-        {playbooks.map(pb => {
+        {filtered.map(pb => {
           const model = MODELS.find(m => m.id === pb.model);
           return (
             <div key={pb.id} className="bg-card border border-border rounded-xl p-4 hover:border-primary/30 transition-colors">
@@ -92,6 +121,10 @@ export function PlaybooksView() {
                   </div>
                 </div>
                 <div className="flex gap-1.5 flex-shrink-0">
+                  <button onClick={() => { navigator.clipboard.writeText(pb.prompt); toast.success("Промпт скопирован"); }}
+                    className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title="Копировать промпт">
+                    <Copy size={11} />
+                  </button>
                   <button onClick={() => toast.success(`Плейбук "${pb.name}" запущен`)}
                     className="flex items-center gap-1 px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-md text-[11px] transition-colors">
                     <Play size={11} /> Запустить

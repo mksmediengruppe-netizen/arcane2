@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Settings, Users, BookOpen,
   Calendar, Moon, Sun, LogOut, Zap, ChevronLeft,
   ChevronUp, HelpCircle, Globe, Download, Search, X,
-  MoreHorizontal, Pencil, Trash2, DollarSign
+  MoreHorizontal, Pencil, Trash2, DollarSign, Copy, Pin, Bell, CheckCheck
 } from "lucide-react";
 import {
   AlertDialog,
@@ -60,6 +60,17 @@ const navItems: { icon: React.ReactNode; label: string; view: View; shortcut?: s
   { icon: <Settings size={14} />,        label: "Настройки",     view: "settings",   shortcut: "⇧⌘," },
 ];
 
+const MOCK_NOTIFICATIONS = [
+  { id: "n1", type: "budget",  title: "Бюджет превышен",   desc: "Проект \"Bitrix сервер\" исчерпал $5.00",   time: "2 мин назад",  read: false },
+  { id: "n2", type: "error",   title: "Ошибка задачи",    desc: "Анализ производительности завершился с ошибкой",   time: "15 мин назад", read: false },
+  { id: "n3", type: "done",    title: "Задача выполнена",  desc: "Установка SSL завершена за 3m 45s",           time: "1 ч назад",    read: false },
+  { id: "n4", type: "info",    title: "Новая модель",       desc: "Claude Opus 4.6 добавлен в список моделей",        time: "3 ч назад",    read: true  },
+];
+
+const NOTIF_COLORS: Record<string, string> = {
+  budget: "text-yellow-400", error: "text-red-400", done: "text-emerald-400", info: "text-blue-400"
+};
+
 const notificationCount = 3;
 
 export default function LeftPanel() {
@@ -84,7 +95,11 @@ export default function LeftPanel() {
   // Budget editing state
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [budgetValue, setBudgetValue] = useState("");
+  // Notifications state
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
   const searchRef = useRef<HTMLInputElement>(null);
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   // Ctrl+K / Cmd+K focuses search
   useEffect(() => {
@@ -499,9 +514,15 @@ export default function LeftPanel() {
                               <MoreHorizontal size={12} />
                             </button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent side="right" align="start" className="w-40">
+                          <DropdownMenuContent side="right" align="start" className="w-44">
                             <DropdownMenuItem onClick={() => startRename(task.id, task.name)}>
                               <Pencil size={12} className="mr-2" /> Переименовать
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { dispatch({ type: "DUPLICATE_TASK", projectId: project.id, taskId: task.id }); }}>
+                              <Copy size={12} className="mr-2" /> Дублировать
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => { dispatch({ type: "PIN_TASK", projectId: project.id, taskId: task.id }); }}>
+                              <Pin size={12} className="mr-2" /> {task.pinned ? "Открепить" : "Закрепить"}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setDeleteConfirm({ type: "task", id: task.id, projectId: project.id, name: task.name })} className="text-destructive focus:text-destructive">
@@ -594,11 +615,12 @@ export default function LeftPanel() {
                 <div className="text-[12px] font-medium text-foreground">Алексей Петров</div>
                 <div className="text-[11px] text-muted-foreground">alexey@company.ru · Супер-админ</div>
               </div>
-              {notificationCount > 0 && (
+              {unreadCount > 0 && (
                 <>
-                  <DropdownMenuItem onClick={() => toast.info(`У вас ${notificationCount} новых события`)} className="text-amber-500 focus:text-amber-500">
-                    <span className="mr-2 text-[10px] font-bold bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center">{notificationCount}</span>
-                    Новые уведомления
+                  <DropdownMenuItem onClick={() => setShowNotifications(true)} className="text-amber-500 focus:text-amber-500">
+                    <Bell size={13} className="mr-2" />
+                    <span>{unreadCount} новых уведомления</span>
+                    <span className="ml-auto text-[10px] font-bold bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center">{unreadCount}</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                 </>
@@ -639,7 +661,69 @@ export default function LeftPanel() {
       </div>
     </div>
 
-    {/* ── Delete confirmation dialog ── */}
+    {/* ── Notifications Panel ── */}
+  {showNotifications && (
+    <div className="fixed inset-0 z-50 flex items-start justify-start" onClick={() => setShowNotifications(false)}>
+      <div className="absolute left-0 top-0 bottom-0 w-[320px] bg-sidebar border-r border-border shadow-2xl flex flex-col"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <Bell size={14} className="text-foreground" />
+            <span className="text-[14px] font-semibold text-foreground">Уведомления</span>
+            {unreadCount > 0 && (
+              <span className="text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5 py-0.5">{unreadCount}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}
+              className="flex items-center gap-1 px-2 py-1 rounded text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              title="Отметить все прочитанными">
+              <CheckCheck size={12} />
+            </button>
+            <button onClick={() => setShowNotifications(false)}
+              className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {notifications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center p-6">
+              <Bell size={24} className="text-muted-foreground/30 mb-2" />
+              <div className="text-[13px] text-muted-foreground">Нет уведомлений</div>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {notifications.map(notif => (
+                <div key={notif.id}
+                  className={`px-4 py-3 hover:bg-accent/30 transition-colors cursor-pointer group ${notif.read ? "opacity-60" : ""}`}
+                  onClick={() => setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n))}>
+                  <div className="flex items-start gap-3">
+                    <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${notif.read ? "bg-transparent" : "bg-primary"}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`text-[12px] font-medium ${NOTIF_COLORS[notif.type]}`}>{notif.title}</span>
+                        <button
+                          onClick={e => { e.stopPropagation(); setNotifications(prev => prev.filter(n => n.id !== notif.id)); }}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-400/10 text-muted-foreground hover:text-red-400 transition-all flex-shrink-0">
+                          <X size={10} />
+                        </button>
+                      </div>
+                      <div className="text-[11px] text-foreground/70 mt-0.5">{notif.desc}</div>
+                      <div className="text-[10px] text-muted-foreground/50 mt-1">{notif.time}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )}
+
+  {/* ── Delete confirmation dialog ── */}
     <AlertDialog open={!!deleteConfirm} onOpenChange={(open: boolean) => !open && setDeleteConfirm(null)}>
       <AlertDialogContent>
         <AlertDialogHeader>

@@ -1,10 +1,16 @@
-// === CHAT PANEL — Document-style chat, model selector, Collective Mind mode ===
+// Design: Refined Dark SaaS — Chat Panel
+// Features: EmptyChat, Capability Badges, Stop button, Follow-up suggestions, Edit message, Reactions
 import { useState, useRef, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { MODELS, formatCost, Message } from "@/lib/mockData";
-import { Send, ChevronDown, Brain, Zap, ChevronRight, Copy, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
+import {
+  Send, ChevronDown, Brain, Zap, ChevronRight, Copy, RotateCcw,
+  ThumbsUp, ThumbsDown, Square, Globe, Terminal, FileText,
+  Image, Search, Pencil, Check, X
+} from "lucide-react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
+import EmptyChat from "./EmptyChat";
 
 const TIER_LABELS: Record<string, string> = {
   fast: "Быстрый", standard: "Стандарт", genius: "Гений", optimum: "Оптимум"
@@ -17,7 +23,54 @@ const CHAT_MODES = [
   { id: "manual",     label: "MANUAL",            icon: "🎛️" },
 ];
 
-// Simulated streaming response
+const CAPABILITIES = [
+  { id: "search",  icon: <Search size={11} />,   label: "Поиск",   color: "text-blue-400" },
+  { id: "browser", icon: <Globe size={11} />,    label: "Браузер", color: "text-emerald-400" },
+  { id: "ssh",     icon: <Terminal size={11} />, label: "SSH",     color: "text-yellow-400" },
+  { id: "files",   icon: <FileText size={11} />, label: "Файлы",   color: "text-purple-400" },
+  { id: "images",  icon: <Image size={11} />,    label: "Картинки",color: "text-pink-400" },
+];
+
+const FOLLOW_UP_SUGGESTIONS = [
+  "Как оптимизировать производительность?",
+  "Покажи пример использования",
+  "Объясни подробнее шаг 2",
+  "Добавь обработку ошибок",
+  "Напиши тесты для этого кода",
+];
+
+const AGENT_STEPS_SEQUENCE = [
+  { tool: "Browser",    icon: "🌐", action: "Открываю страницу документации...",       color: "text-blue-400" },
+  { tool: "Browser",    icon: "🌐", action: "Извлекаю инструкции по установке...",     color: "text-blue-400" },
+  { tool: "SSH",        icon: "💻", action: "Подключаюсь к серверу...",                    color: "text-emerald-400" },
+  { tool: "SSH",        icon: "💻", action: "Выполняю: apt update && apt upgrade...",          color: "text-emerald-400" },
+  { tool: "FileSystem", icon: "📁", action: "Создаю конфигурационный файл...",        color: "text-yellow-400" },
+  { tool: "LLM",        icon: "🧠", action: "Генерирую итоговый отчёт...",                color: "text-purple-400" },
+];
+
+function AgentStepsInline({ progress }: { progress: number }) {
+  const visibleSteps = AGENT_STEPS_SEQUENCE.slice(0, Math.ceil(progress * AGENT_STEPS_SEQUENCE.length));
+  return (
+    <div className="mb-3 space-y-1">
+      {visibleSteps.map((step, i) => (
+        <div key={i} className="flex items-center gap-2 text-[11px]">
+          <span className="w-4 h-4 rounded-full bg-emerald-400/20 flex items-center justify-center text-[8px]">✓</span>
+          <span className={`font-medium ${step.color}`}>{step.tool}</span>
+          <span className="text-foreground/60">{step.action}</span>
+        </div>
+      ))}
+      {progress < 1 && (
+        <div className="flex items-center gap-2 text-[11px]">
+          <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          </span>
+          <span className="text-muted-foreground animate-pulse">Выполняюсь...</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function simulateResponse(taskName: string, modelId: string): string {
   const model = MODELS.find(m => m.id === modelId);
   return `## Ответ от ${model?.name || modelId}
@@ -64,23 +117,17 @@ function CollectiveBlock({ query }: { query: string }) {
     return { model: m, text: `Краткое мнение от ${m.name}: рекомендую подход через ${mid.includes("claude") ? "функциональную декомпозицию" : mid.includes("gpt") ? "объектно-ориентированную архитектуру" : "минималистичный алгоритм"}.` };
   });
   const synth = MODELS.find(m => m.id === COLLECTIVE_SYNTH)!;
-
   return (
     <div className="collective-block my-3">
       <div className="flex items-center gap-2 mb-3">
         <Brain size={13} className="text-primary" />
         <span className="text-[11px] font-semibold text-primary uppercase tracking-wider">Коллективный разум</span>
       </div>
-
-      {/* Opinions accordion */}
       <button onClick={() => setExpanded(v => !v)}
         className="w-full flex items-center justify-between text-left mb-2 hover:opacity-80 transition-opacity">
-        <span className="text-[11px] text-muted-foreground">
-          {COLLECTIVE_MODELS.length} моделей опрошено
-        </span>
+        <span className="text-[11px] text-muted-foreground">{COLLECTIVE_MODELS.length} моделей опрошено</span>
         <ChevronDown size={12} className={`text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`} />
       </button>
-
       {expanded && (
         <div className="space-y-2 mb-3">
           {opinions.map(({ model, text }) => (
@@ -95,8 +142,6 @@ function CollectiveBlock({ query }: { query: string }) {
           ))}
         </div>
       )}
-
-      {/* Synthesis */}
       <div className="border-t border-border/50 pt-2.5">
         <div className="flex items-center gap-1.5 mb-1.5">
           <span className="text-[10px]" style={{ color: synth.color }}>{synth.icon}</span>
@@ -104,7 +149,7 @@ function CollectiveBlock({ query }: { query: string }) {
           <span className="text-[10px] text-muted-foreground">— синтез</span>
         </div>
         <div className="text-[12px] text-foreground">
-          На основе анализа {COLLECTIVE_MODELS.length} моделей: оптимальным является комбинированный подход, сочетающий функциональную декомпозицию с чёткой архитектурой модулей. Рекомендуется начать с базовой структуры, затем итеративно добавлять функциональность.
+          На основе анализа {COLLECTIVE_MODELS.length} моделей: оптимальным является комбинированный подход, сочетающий функциональную декомпозицию с чёткой архитектурой модулей.
         </div>
         <div className="mt-1.5 mono text-[10px] text-muted-foreground">
           Общая стоимость: {formatCost(0.089)} · {COLLECTIVE_MODELS.length + 1} запроса
@@ -123,18 +168,34 @@ function ThinkingBlock({ text }: { text: string }) {
         <ChevronRight size={11} className={`transition-transform ${open ? "rotate-90" : ""}`} />
         <span>Размышление модели</span>
       </button>
-      {open && <div className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{text}</div>}
+      {open && <div className="mt-2 text-[11px] leading-relaxed text-muted-foreground font-mono">{text}</div>}
     </div>
   );
 }
 
-function MessageRow({ msg }: { msg: Message }) {
+function MessageRow({
+  msg,
+  onEdit,
+}: {
+  msg: Message;
+  onEdit?: (id: string, newContent: string) => void;
+}) {
   const model = MODELS.find(m => m.id === msg.model);
   const isUser = msg.role === "user";
+  const [reaction, setReaction] = useState<"up" | "down" | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(msg.content);
+
+  const commitEdit = () => {
+    if (editText.trim() && onEdit) {
+      onEdit(msg.id, editText.trim());
+      toast.success("Сообщение обновлено");
+    }
+    setEditing(false);
+  };
 
   return (
     <div className={`py-3 border-b border-border/40 group ${isUser ? "msg-user" : "msg-ai"}`}>
-      {/* Header */}
       <div className="flex items-center gap-2 mb-2">
         {isUser ? (
           <>
@@ -151,36 +212,67 @@ function MessageRow({ msg }: { msg: Message }) {
         {msg.cost && (
           <span className="mono text-[10px] text-muted-foreground/50">{formatCost(msg.cost)}</span>
         )}
-        {/* Actions (visible on hover) */}
-        {!isUser && (
-          <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={() => { navigator.clipboard.writeText(msg.content); toast.success("Скопировано"); }}
-              className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-              <Copy size={11} />
+        <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          {isUser ? (
+            <button onClick={() => { setEditing(true); setEditText(msg.content); }}
+              className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title="Редактировать">
+              <Pencil size={11} />
             </button>
-            <button className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-              <ThumbsUp size={11} />
-            </button>
-            <button className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-              <ThumbsDown size={11} />
-            </button>
-            <button className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-              <RotateCcw size={11} />
-            </button>
-          </div>
-        )}
+          ) : (
+            <>
+              <button onClick={() => { navigator.clipboard.writeText(msg.content); toast.success("Скопировано"); }}
+                className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
+                <Copy size={11} />
+              </button>
+              <button onClick={() => setReaction(reaction === "up" ? null : "up")}
+                className={`p-1 rounded hover:bg-accent transition-colors ${reaction === "up" ? "text-emerald-400" : "text-muted-foreground hover:text-foreground"}`}>
+                <ThumbsUp size={11} />
+              </button>
+              <button onClick={() => setReaction(reaction === "down" ? null : "down")}
+                className={`p-1 rounded hover:bg-accent transition-colors ${reaction === "down" ? "text-red-400" : "text-muted-foreground hover:text-foreground"}`}>
+                <ThumbsDown size={11} />
+              </button>
+              <button className="p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title="Повторить">
+                <RotateCcw size={11} />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Thinking */}
       {msg.thinking && <ThinkingBlock text={msg.thinking} />}
 
-      {/* Content */}
-      <div className={`text-[13px] leading-relaxed ${isUser ? "text-foreground/90" : "text-foreground"}`}>
-        <Streamdown>{msg.content}</Streamdown>
-      </div>
+      {editing ? (
+        <div className="space-y-2">
+          <textarea
+            className="w-full bg-input border border-primary/50 rounded-lg px-3 py-2 text-[13px] text-foreground resize-none outline-none focus:border-primary transition-colors leading-relaxed"
+            value={editText}
+            onChange={e => setEditText(e.target.value)}
+            rows={3}
+            autoFocus
+            onBlur={commitEdit}
+            onKeyDown={e => {
+              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commitEdit(); }
+              if (e.key === "Escape") { setEditing(false); setEditText(msg.content); }
+            }}
+          />
+          <div className="flex items-center gap-2">
+            <button onClick={commitEdit} className="flex items-center gap-1 px-2.5 py-1 bg-primary text-primary-foreground rounded text-[11px] hover:bg-primary/80 transition-colors">
+              <Check size={10} /> Сохранить
+            </button>
+            <button onClick={() => { setEditing(false); setEditText(msg.content); }}
+              className="flex items-center gap-1 px-2.5 py-1 bg-muted text-muted-foreground rounded text-[11px] hover:bg-accent transition-colors">
+              <X size={10} /> Отмена
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className={`text-[13px] leading-relaxed ${isUser ? "text-foreground/90" : "text-foreground"}`}>
+          <Streamdown>{msg.content}</Streamdown>
+        </div>
+      )}
 
-      {/* Token stats */}
-      {msg.tokens && (
+      {msg.tokens && !editing && (
         <div className="mt-2 flex items-center gap-3">
           <span className="mono text-[10px] text-muted-foreground/40">↑{msg.tokens.in} ↓{msg.tokens.out} токенов</span>
         </div>
@@ -199,8 +291,14 @@ export default function ChatPanel() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [liveCost, setLiveCost] = useState(0);
+  const [capabilities, setCapabilities] = useState<Record<string, boolean>>({
+    search: true, browser: true, ssh: false, files: false, images: false,
+  });
+  const [showFollowUp, setShowFollowUp] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const stopRef = useRef(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const activeTask = state.activeProjectId && state.activeTaskId
     ? state.projects.find(p => p.id === state.activeProjectId)?.tasks.find(t => t.id === state.activeTaskId)
@@ -213,10 +311,34 @@ export default function ChatPanel() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [activeTask?.messages, streamingText]);
 
-  const handleSend = async () => {
-    if (!input.trim() || !state.activeProjectId || !state.activeTaskId || isGenerating) return;
+  // Show follow-up after last AI message
+  useEffect(() => {
+    if (activeTask && activeTask.messages.length > 0) {
+      const last = activeTask.messages[activeTask.messages.length - 1];
+      setShowFollowUp(last.role === "assistant");
+    } else {
+      setShowFollowUp(false);
+    }
+  }, [activeTask?.messages]);
+
+  const handleStop = () => {
+    stopRef.current = true;
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setIsGenerating(false);
+    setStreamingText("");
+    setLiveCost(0);
+    if (state.activeProjectId && state.activeTaskId) {
+      dispatch({ type: "UPDATE_TASK_STATUS", projectId: state.activeProjectId, taskId: state.activeTaskId, status: "warning" });
+    }
+    toast.warning("Генерация остановлена");
+  };
+
+  const handleSend = async (overrideInput?: string) => {
+    const text = (overrideInput ?? input).trim();
+    if (!text || !state.activeProjectId || !state.activeTaskId || isGenerating) return;
     const userMsg: Message = {
-      id: `m${Date.now()}`, role: "user", content: input.trim(), timestamp: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
+      id: `m${Date.now()}`, role: "user", content: text,
+      timestamp: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
     };
     dispatch({ type: "ADD_MESSAGE", projectId: state.activeProjectId, taskId: state.activeTaskId, message: userMsg });
     dispatch({ type: "UPDATE_TASK_STATUS", projectId: state.activeProjectId, taskId: state.activeTaskId, status: "running" });
@@ -224,8 +346,9 @@ export default function ChatPanel() {
     setIsGenerating(true);
     setStreamingText("");
     setLiveCost(0);
+    stopRef.current = false;
+    setShowFollowUp(false);
 
-    // Simulate streaming
     const fullText = chatMode === "collective"
       ? "[COLLECTIVE]" + simulateResponse(activeTask?.name || "задача", COLLECTIVE_SYNTH)
       : simulateResponse(activeTask?.name || "задача", selectedModel);
@@ -233,12 +356,14 @@ export default function ChatPanel() {
     const model = MODELS.find(m => m.id === selectedModel);
     const costPerChar = (model?.costOut || 5) / 1_000_000 / 4;
     let i = 0;
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
+      if (stopRef.current) return;
       if (i >= fullText.length) {
-        clearInterval(interval);
+        clearInterval(intervalRef.current!);
         const finalCost = parseFloat((fullText.length * costPerChar).toFixed(4));
         const aiMsg: Message = {
-          id: `m${Date.now()}`, role: "assistant", model: chatMode === "collective" ? COLLECTIVE_SYNTH : selectedModel,
+          id: `m${Date.now()}`, role: "assistant",
+          model: chatMode === "collective" ? COLLECTIVE_SYNTH : selectedModel,
           content: chatMode === "collective" ? fullText.replace("[COLLECTIVE]", "") : fullText,
           timestamp: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
           tokens: { in: Math.floor(Math.random() * 1000 + 500), out: Math.floor(fullText.length / 4) },
@@ -247,24 +372,20 @@ export default function ChatPanel() {
         dispatch({ type: "ADD_MESSAGE", projectId: state.activeProjectId!, taskId: state.activeTaskId!, message: aiMsg });
         dispatch({ type: "UPDATE_TASK_STATUS", projectId: state.activeProjectId!, taskId: state.activeTaskId!, status: "done", duration: `${Math.floor(Math.random() * 5 + 1)}m ${Math.floor(Math.random() * 59)}s` });
 
-        // ── Budget alert after message is dispatched ──
         if (activeProject?.budget != null) {
           const newProjectCost = projectCost + finalCost;
           const pct = (newProjectCost / activeProject.budget) * 100;
           const prevPct = (projectCost / activeProject.budget) * 100;
           if (pct >= 100 && prevPct < 100) {
-            toast.error(
-              `⚠️ Бюджет проекта «${activeProject.name}» превышен!`,
-              { description: `Потрачено $${newProjectCost.toFixed(2)} из $${activeProject.budget.toFixed(2)} (лимит превышен на ${(pct - 100).toFixed(0)}%)`, duration: 8000 }
-            );
+            toast.error(`⚠️ Бюджет проекта «${activeProject.name}» превышен!`, {
+              description: `Потрачено $${newProjectCost.toFixed(2)} из $${activeProject.budget.toFixed(2)}`, duration: 8000
+            });
           } else if (pct >= 80 && prevPct < 80) {
-            toast.warning(
-              `⚠️ Бюджет проекта «${activeProject.name}» использован на 80%`,
-              { description: `Потрачено $${newProjectCost.toFixed(2)} из $${activeProject.budget.toFixed(2)}. Остаток: $${(activeProject.budget - newProjectCost).toFixed(2)}`, duration: 6000 }
-            );
+            toast.warning(`⚠️ Бюджет проекта «${activeProject.name}» использован на 80%`, {
+              description: `Остаток: $${(activeProject.budget - newProjectCost).toFixed(2)}`, duration: 6000
+            });
           }
         }
-
         setIsGenerating(false);
         setStreamingText("");
         setLiveCost(0);
@@ -279,6 +400,11 @@ export default function ChatPanel() {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  const handleEditMessage = (id: string, newContent: string) => {
+    if (!state.activeProjectId || !state.activeTaskId) return;
+    dispatch({ type: "EDIT_MESSAGE", projectId: state.activeProjectId, taskId: state.activeTaskId, messageId: id, content: newContent });
   };
 
   const currentModel = MODELS.find(m => m.id === selectedModel)!;
@@ -307,7 +433,6 @@ export default function ChatPanel() {
           <div className="flex items-center gap-2 mt-0.5">
             <span className="text-[10px] text-muted-foreground">{activeProject?.name}</span>
             <span className="text-muted-foreground/30">·</span>
-            {/* Live cost counter */}
             <span className={`mono text-[11px] font-medium transition-colors ${isGenerating ? "text-blue-400" : "text-muted-foreground"}`}>
               {isGenerating ? (
                 <span className="flex items-center gap-1">
@@ -321,6 +446,13 @@ export default function ChatPanel() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
+          {isGenerating && (
+            <button onClick={handleStop}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-[11px] transition-colors">
+              <Square size={10} className="fill-red-400" />
+              Стоп
+            </button>
+          )}
           <span className={`w-2 h-2 rounded-full ${
             activeTask.status === "running" ? "bg-blue-400 animate-pulse" :
             activeTask.status === "done" ? "bg-emerald-400" :
@@ -331,40 +463,66 @@ export default function ChatPanel() {
         </div>
       </div>
 
-      {/* Messages */}
+      {/* Messages or Empty state */}
       <div className="flex-1 overflow-y-auto px-5 py-2">
-        {activeTask.messages.length === 0 && !isGenerating && (
-          <div className="flex flex-col items-center justify-center h-full text-center py-12">
-            <div className="text-[13px] text-muted-foreground">Начните диалог — введите запрос ниже</div>
-          </div>
-        )}
-        {activeTask.messages.map(msg => (
-          msg.content.startsWith("[COLLECTIVE]") ? null : <MessageRow key={msg.id} msg={msg} />
-        ))}
+        {activeTask.messages.length === 0 && !isGenerating ? (
+          <EmptyChat
+            projectName={activeProject?.name || ""}
+            taskName={activeTask.name}
+            onSelectTemplate={(text) => {
+              setInput(text);
+              textareaRef.current?.focus();
+            }}
+          />
+        ) : (
+          <>
+            {activeTask.messages.map(msg => (
+              msg.content.startsWith("[COLLECTIVE]") ? null :
+              <MessageRow key={msg.id} msg={msg} onEdit={handleEditMessage} />
+            ))}
 
-        {/* Streaming message */}
-        {isGenerating && streamingText && (
-          <div className="py-3 border-b border-border/40">
-            <div className="flex items-center gap-2 mb-2">
-              {chatMode === "collective" ? (
-                <>
-                  <Brain size={13} className="text-primary" />
-                  <span className="text-[11px] font-medium text-foreground">Коллективный разум</span>
-                </>
-              ) : (
-                <>
-                  <span className="text-[13px]" style={{ color: currentModel.color }}>{currentModel.icon}</span>
-                  <span className="text-[11px] font-medium text-foreground">{currentModel.name}</span>
-                </>
-              )}
-              <span className="mono text-[10px] text-blue-400 animate-pulse">{formatCost(liveCost)}</span>
-            </div>
-            {chatMode === "collective" && <CollectiveBlock query={input} />}
-            <div className="text-[13px] leading-relaxed text-foreground">
-              <Streamdown>{streamingText.replace("[COLLECTIVE]", "")}</Streamdown>
-              <span className="inline-block w-0.5 h-3.5 bg-primary animate-pulse ml-0.5 align-middle" />
-            </div>
-          </div>
+            {/* Streaming message */}
+            {isGenerating && streamingText && (
+              <div className="py-3 border-b border-border/40">
+                <div className="flex items-center gap-2 mb-2">
+                  {chatMode === "collective" ? (
+                    <>
+                      <Brain size={13} className="text-primary" />
+                      <span className="text-[11px] font-medium text-foreground">Коллективный разум</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-[13px]" style={{ color: currentModel.color }}>{currentModel.icon}</span>
+                      <span className="text-[11px] font-medium text-foreground">{currentModel.name}</span>
+                    </>
+                  )}
+                  <span className="mono text-[10px] text-blue-400 animate-pulse">{formatCost(liveCost)}</span>
+                </div>
+                {/* Inline agent steps */}
+                <AgentStepsInline progress={Math.min(1, streamingText.length / 200)} />
+                {chatMode === "collective" && <CollectiveBlock query={input} />}
+                <div className="text-[13px] leading-relaxed text-foreground">
+                  <Streamdown>{streamingText.replace("[COLLECTIVE]", "")}</Streamdown>
+                  <span className="inline-block w-0.5 h-3.5 bg-primary animate-pulse ml-0.5 align-middle" />
+                </div>
+              </div>
+            )}
+
+            {/* Follow-up suggestions */}
+            {showFollowUp && !isGenerating && (
+              <div className="py-3">
+                <div className="text-[10px] text-muted-foreground/50 mb-2 uppercase tracking-wider">Продолжить разговор</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {FOLLOW_UP_SUGGESTIONS.slice(0, 3).map(s => (
+                    <button key={s} onClick={() => handleSend(s)}
+                      className="px-2.5 py-1 rounded-full bg-accent/50 hover:bg-accent border border-border text-[11px] text-muted-foreground hover:text-foreground transition-colors">
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
         <div ref={messagesEndRef} />
       </div>
@@ -372,7 +530,7 @@ export default function ChatPanel() {
       {/* Input area */}
       <div className="border-t border-border px-4 py-3 flex-shrink-0">
         {/* Mode & Model selectors */}
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
           {/* Mode picker */}
           <div className="relative">
             <button onClick={() => { setShowModePicker(v => !v); setShowModelPicker(false); }}
@@ -443,10 +601,32 @@ export default function ChatPanel() {
           )}
         </div>
 
+        {/* Capability Badges */}
+        <div className="flex items-center gap-1.5 mb-2">
+          {CAPABILITIES.map(cap => (
+            <button
+              key={cap.id}
+              onClick={() => setCapabilities(prev => ({ ...prev, [cap.id]: !prev[cap.id] }))}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border transition-colors ${
+                capabilities[cap.id]
+                  ? `${cap.color} bg-accent/50 border-border`
+                  : "text-muted-foreground/40 border-border/30 hover:border-border hover:text-muted-foreground"
+              }`}
+              title={cap.label}
+            >
+              {cap.icon}
+              <span>{cap.label}</span>
+            </button>
+          ))}
+        </div>
+
         {/* Textarea */}
         <div className="flex items-end gap-2">
           <div className="flex-1 relative">
-            <textarea ref={textareaRef} value={input} onChange={e => setInput(e.target.value)}
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={chatMode === "collective" ? "Задайте вопрос — все модели ответят одновременно..." : "Введите запрос... (Enter — отправить, Shift+Enter — новая строка)"}
               rows={1}
@@ -459,13 +639,17 @@ export default function ChatPanel() {
               }}
             />
           </div>
-          <button onClick={handleSend} disabled={!input.trim() || isGenerating}
-            className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary hover:bg-primary/80 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors">
-            {isGenerating
-              ? <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-              : <Send size={14} className="text-primary-foreground" />
-            }
-          </button>
+          {isGenerating ? (
+            <button onClick={handleStop}
+              className="flex-shrink-0 w-9 h-9 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 flex items-center justify-center transition-colors">
+              <Square size={14} className="text-red-400 fill-red-400" />
+            </button>
+          ) : (
+            <button onClick={() => handleSend()} disabled={!input.trim()}
+              className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary hover:bg-primary/80 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors">
+              <Send size={14} className="text-primary-foreground" />
+            </button>
+          )}
         </div>
         <div className="flex items-center justify-between mt-1.5">
           <span className="text-[10px] text-muted-foreground/40">Enter — отправить · Shift+Enter — новая строка</span>

@@ -34,7 +34,10 @@ export type AppAction =
   | { type: "RENAME_PROJECT"; projectId: string; name: string }
   | { type: "DELETE_TASK"; projectId: string; taskId: string }
   | { type: "DELETE_PROJECT"; projectId: string }
-  | { type: "SET_PROJECT_BUDGET"; projectId: string; budget: number | undefined };
+  | { type: "SET_PROJECT_BUDGET"; projectId: string; budget: number | undefined }
+  | { type: "EDIT_MESSAGE"; projectId: string; taskId: string; messageId: string; content: string }
+  | { type: "DUPLICATE_TASK"; projectId: string; taskId: string }
+  | { type: "PIN_TASK"; projectId: string; taskId: string };
 
 // Read saved theme from localStorage, default to "dark"
 const savedTheme = (typeof window !== "undefined" && (localStorage.getItem("arcane-theme") as "dark" | "light")) || "dark";
@@ -151,6 +154,41 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const projects = state.projects.map(p =>
         p.id !== action.projectId ? p : { ...p, budget: action.budget }
       );
+      return { ...state, projects };
+    }
+    case "EDIT_MESSAGE": {
+      const projects = state.projects.map(p => {
+        if (p.id !== action.projectId) return p;
+        return {
+          ...p,
+          tasks: p.tasks.map(t => {
+            if (t.id !== action.taskId) return t;
+            return { ...t, messages: t.messages.map(m => m.id === action.messageId ? { ...m, content: action.content } : m) };
+          }),
+        };
+      });
+      return { ...state, projects };
+    }
+    case "DUPLICATE_TASK": {
+      const srcTask = state.projects.find(p => p.id === action.projectId)?.tasks.find(t => t.id === action.taskId);
+      if (!srcTask) return state;
+      const dupTask = { ...srcTask, id: `t${Date.now()}`, name: `${srcTask.name} (копия)`, cost: 0, messages: [], status: "idle" as const };
+      const projects = state.projects.map(p =>
+        p.id === action.projectId ? { ...p, tasks: [...p.tasks, dupTask] } : p
+      );
+      return { ...state, projects, activeTaskId: dupTask.id };
+    }
+    case "PIN_TASK": {
+      const projects = state.projects.map(p => {
+        if (p.id !== action.projectId) return p;
+        const task = p.tasks.find(t => t.id === action.taskId);
+        if (!task) return p;
+        const pinned = !task.pinned;
+        const tasks = p.tasks.map(t => t.id === action.taskId ? { ...t, pinned } : t);
+        // Sort: pinned first
+        tasks.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+        return { ...p, tasks };
+      });
       return { ...state, projects };
     }
     case "TOGGLE_THEME": {

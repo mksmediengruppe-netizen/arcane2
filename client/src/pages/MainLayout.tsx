@@ -1,6 +1,6 @@
 // === MAIN LAYOUT — Three-column resizable layout ===
 // Design: Refined Dark SaaS — left nav, center chat, right inspector
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { toast } from "sonner";
 import LeftPanel from "@/components/LeftPanel";
@@ -10,8 +10,10 @@ import DogRacing from "@/components/DogRacing";
 import Dashboard from "@/components/Dashboard";
 import Settings from "@/components/Settings";
 import { PlaybooksView, ScheduleView } from "@/components/Playbooks";
+import CommandPalette from "@/components/CommandPalette";
+import ShortcutsModal from "@/components/ShortcutsModal";
 
-function ResizeHandle({ onDrag }: { onDrag: (dx: number) => void }) {
+function ResizeHandle({ onDrag, onDoubleClick }: { onDrag: (dx: number) => void; onDoubleClick?: () => void }) {
   const isDragging = useRef(false);
   const lastX = useRef(0);
 
@@ -39,9 +41,10 @@ function ResizeHandle({ onDrag }: { onDrag: (dx: number) => void }) {
   }, [onDrag]);
 
   return (
-    <div onMouseDown={onMouseDown}
+    <div onMouseDown={onMouseDown} onDoubleClick={onDoubleClick}
       className="w-1 flex-shrink-0 hover:bg-primary/40 active:bg-primary/60 cursor-col-resize transition-colors group relative"
-      style={{ background: "transparent" }}>
+      style={{ background: "transparent" }}
+      title="Двойной клик — сброс ширины">
       <div className="absolute inset-y-0 -left-1 -right-1" />
     </div>
   );
@@ -49,6 +52,8 @@ function ResizeHandle({ onDrag }: { onDrag: (dx: number) => void }) {
 
 export default function MainLayout() {
   const { state, dispatch } = useApp();
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   const handleLeftResize = useCallback((dx: number) => {
     const newWidth = Math.max(180, Math.min(400, state.leftPanelWidth + dx));
@@ -97,6 +102,31 @@ export default function MainLayout() {
           toast.success("→ Настройки", { duration: 1500 });
           return;
         }
+        // Cmd+K — command palette
+        if (e.key === "k") {
+          e.preventDefault();
+          setCommandPaletteOpen(v => !v);
+          return;
+        }
+        // Cmd+/ — shortcuts modal
+        if (e.key === "/") {
+          e.preventDefault();
+          setShortcutsOpen(v => !v);
+          return;
+        }
+        // Cmd+[ — toggle right panel
+        if (e.key === "[") {
+          e.preventDefault();
+          dispatch({ type: "TOGGLE_RIGHT_PANEL" });
+          return;
+        }
+        // Cmd+Shift+D — toggle theme
+        if (e.key === "D" && e.shiftKey) {
+          e.preventDefault();
+          dispatch({ type: "TOGGLE_THEME" });
+          toast.success("Тема переключена", { duration: 1500 });
+          return;
+        }
       }
 
       // Escape — back to chat from any full view
@@ -109,14 +139,16 @@ export default function MainLayout() {
     return () => window.removeEventListener("keydown", handler);
   }, [dispatch, isFullView]);
 
-  return (
+    return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
+      <CommandPalette open={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
+      <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       {/* Left panel */}
       <LeftPanel />
 
       {/* Left resize handle */}
       {state.leftPanelOpen && !isFullView && (
-        <ResizeHandle onDrag={handleLeftResize} />
+        <ResizeHandle onDrag={handleLeftResize} onDoubleClick={() => dispatch({ type: "SET_LEFT_WIDTH", width: 260 })} />
       )}
 
       {/* Center / Main content */}
@@ -132,7 +164,7 @@ export default function MainLayout() {
 
       {/* Right resize handle */}
       {state.rightPanelOpen && state.activeView === "chat" && (
-        <ResizeHandle onDrag={handleRightResize} />
+        <ResizeHandle onDrag={handleRightResize} onDoubleClick={() => dispatch({ type: "SET_RIGHT_WIDTH", width: 380 })} />
       )}
 
       {/* Right panel — only in chat view */}
