@@ -486,7 +486,13 @@ export default function LeftPanel() {
                         }`}>
                         <button onClick={() => dispatch({ type: "SET_ACTIVE_TASK", projectId: project.id, taskId: task.id })}
                           className="flex items-start gap-2 flex-1 min-w-0 text-left">
-                          <span className={`status-dot mt-1.5 flex-shrink-0 ${STATUS_COLORS[task.status]}`} />
+                          {task.status === "running" ? (
+                            <span className="mt-1 flex-shrink-0 w-3.5 h-3.5 flex items-center justify-center">
+                              <span className="block w-3.5 h-3.5 rounded-full border-2 border-blue-400/30 border-t-blue-400 animate-spin" />
+                            </span>
+                          ) : (
+                            <span className={`status-dot mt-1.5 flex-shrink-0 ${STATUS_COLORS[task.status]}`} />
+                          )}
                           <div className="flex-1 min-w-0">
                             {renamingId === task.id ? (
                               <input ref={renameInputRef} value={renameValue}

@@ -598,26 +598,52 @@ function InputCard({
 
         {/* Uploaded file chips — horizontal scroll row */}
         {files.length > 0 && (
-          <div className="flex items-center gap-1.5 px-3 pt-2.5 overflow-x-auto scrollbar-none" style={{ scrollbarWidth: "none" }}>
-            {files.map(f => (
-              <div key={f.id} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent border border-border text-[11px] text-foreground max-w-[200px] flex-shrink-0 group">
-                {f.preview ? (
-                  <img src={f.preview} alt={f.name}
-                    onClick={() => setLightboxSrc(f.preview!)}
-                    className="w-8 h-8 rounded object-cover flex-shrink-0 border border-border/50 cursor-zoom-in hover:opacity-80 transition-opacity" />
-                ) : (
-                  <Paperclip size={10} className="text-muted-foreground flex-shrink-0" />
-                )}
-                <div className="flex flex-col min-w-0">
-                  <span className="truncate leading-tight">{f.name}</span>
-                  <span className="text-muted-foreground/60 text-[10px]">{formatFileSize(f.size)}</span>
+          <div className="flex items-center gap-1.5 px-3 pt-2.5 pb-0 overflow-x-auto scrollbar-none" style={{ scrollbarWidth: "none" }}>
+            {files.map(f => {
+              // Determine icon for non-image files
+              const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
+              const isImg = !!f.preview;
+              const isPdf = ext === "pdf";
+              const isCode = ["js","ts","tsx","jsx","py","sh","json","yaml","yml","html","css","sql","md","txt","env","toml","xml"].includes(ext);
+              const isArchive = ["zip","tar","gz","rar","7z"].includes(ext);
+              return (
+                <div key={f.id} className="relative flex items-center gap-1.5 px-2 py-1 rounded-lg bg-accent/80 border border-border/70 text-[11px] text-foreground flex-shrink-0 group/chip"
+                  style={{ maxWidth: 200 }}>
+                  {/* Thumbnail or icon */}
+                  {isImg ? (
+                    <img src={f.preview} alt={f.name}
+                      onClick={() => setLightboxSrc(f.preview!)}
+                      className="w-8 h-8 rounded-md object-cover flex-shrink-0 border border-border/50 cursor-zoom-in hover:opacity-80 transition-opacity" />
+                  ) : isPdf ? (
+                    <span className="w-8 h-8 flex items-center justify-center flex-shrink-0 rounded-md bg-red-500/15 border border-red-500/20 text-red-400 text-[10px] font-bold">PDF</span>
+                  ) : isCode ? (
+                    <span className="w-8 h-8 flex items-center justify-center flex-shrink-0 rounded-md bg-blue-500/15 border border-blue-500/20">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-400"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    </span>
+                  ) : isArchive ? (
+                    <span className="w-8 h-8 flex items-center justify-center flex-shrink-0 rounded-md bg-amber-500/15 border border-amber-500/20">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                    </span>
+                  ) : (
+                    <span className="w-8 h-8 flex items-center justify-center flex-shrink-0 rounded-md bg-accent border border-border">
+                      <Paperclip size={12} className="text-muted-foreground" />
+                    </span>
+                  )}
+                  {/* Name + size */}
+                  <div className="flex flex-col min-w-0">
+                    <span className="truncate leading-tight text-[11px]">{f.name}</span>
+                    <span className="text-muted-foreground/60 text-[10px]">{formatFileSize(f.size)}</span>
+                  </div>
+                  {/* × remove button — visible on hover */}
+                  <button
+                    onClick={() => { if (f.preview) URL.revokeObjectURL(f.preview); setFiles(prev => prev.filter(x => x.id !== f.id)); }}
+                    title="Удалить"
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-zinc-700 border border-border flex items-center justify-center text-muted-foreground hover:text-white hover:bg-destructive hover:border-destructive transition-all opacity-0 group-hover/chip:opacity-100 z-10">
+                    <X size={8} />
+                  </button>
                 </div>
-                <button onClick={() => { if (f.preview) URL.revokeObjectURL(f.preview); setFiles(prev => prev.filter(x => x.id !== f.id)); }}
-                  className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors ml-0.5 opacity-0 group-hover:opacity-100">
-                  <X size={10} />
-                </button>
-              </div>
-            ))}
+              );
+            })}
             {/* Clear-all button shown when 3+ files */}
             {files.length >= 3 && (
               <button
