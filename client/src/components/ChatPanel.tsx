@@ -246,6 +246,25 @@ export default function ChatPanel() {
         };
         dispatch({ type: "ADD_MESSAGE", projectId: state.activeProjectId!, taskId: state.activeTaskId!, message: aiMsg });
         dispatch({ type: "UPDATE_TASK_STATUS", projectId: state.activeProjectId!, taskId: state.activeTaskId!, status: "done", duration: `${Math.floor(Math.random() * 5 + 1)}m ${Math.floor(Math.random() * 59)}s` });
+
+        // ── Budget alert after message is dispatched ──
+        if (activeProject?.budget != null) {
+          const newProjectCost = projectCost + finalCost;
+          const pct = (newProjectCost / activeProject.budget) * 100;
+          const prevPct = (projectCost / activeProject.budget) * 100;
+          if (pct >= 100 && prevPct < 100) {
+            toast.error(
+              `⚠️ Бюджет проекта «${activeProject.name}» превышен!`,
+              { description: `Потрачено $${newProjectCost.toFixed(2)} из $${activeProject.budget.toFixed(2)} (лимит превышен на ${(pct - 100).toFixed(0)}%)`, duration: 8000 }
+            );
+          } else if (pct >= 80 && prevPct < 80) {
+            toast.warning(
+              `⚠️ Бюджет проекта «${activeProject.name}» использован на 80%`,
+              { description: `Потрачено $${newProjectCost.toFixed(2)} из $${activeProject.budget.toFixed(2)}. Остаток: $${(activeProject.budget - newProjectCost).toFixed(2)}`, duration: 6000 }
+            );
+          }
+        }
+
         setIsGenerating(false);
         setStreamingText("");
         setLiveCost(0);
