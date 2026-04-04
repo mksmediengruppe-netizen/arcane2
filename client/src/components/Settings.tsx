@@ -226,6 +226,17 @@ function UsersRedirectCard() {
   );
 }
 
+const MOCK_LOGIN_HISTORY = [
+  { id: "l1", ip: "192.168.1.10", location: "Москва, RU", device: "Chrome / macOS", time: "04.04.2026, 09:41", success: true },
+  { id: "l2", ip: "192.168.1.10", location: "Москва, RU", device: "Chrome / macOS", time: "03.04.2026, 18:22", success: true },
+  { id: "l3", ip: "77.88.55.60",  location: "Санкт-Петербург, RU", device: "Firefox / Windows 11", time: "03.04.2026, 14:05", success: true },
+  { id: "l4", ip: "45.33.32.156", location: "Нью-Йорк, US", device: "Unknown", time: "02.04.2026, 23:47", success: false },
+  { id: "l5", ip: "45.33.32.156", location: "Нью-Йорк, US", device: "Unknown", time: "02.04.2026, 23:46", success: false },
+  { id: "l6", ip: "10.0.0.45",    location: "Москва, RU", device: "Safari / iPhone 15", time: "02.04.2026, 11:30", success: true },
+  { id: "l7", ip: "192.168.1.10", location: "Москва, RU", device: "Chrome / macOS", time: "01.04.2026, 09:15", success: true },
+  { id: "l8", ip: "185.220.101.5",location: "Амстердам, NL", device: "Tor Browser", time: "31.03.2026, 03:12", success: false },
+];
+
 const MOCK_SESSIONS = [
   { id: "s1", device: "Chrome / macOS", ip: "192.168.1.10", location: "Москва, RU", lastActive: "Сейчас", current: true },
   { id: "s2", device: "Safari / iPhone 15", ip: "10.0.0.45", location: "Москва, RU", lastActive: "2 часа назад", current: false },
@@ -350,6 +361,54 @@ function SecuritySection() {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary/80 text-primary-foreground rounded-lg text-[11px] transition-colors">
             <Save size={11} /> Сохранить
           </button>
+        </div>
+      </div>
+
+      {/* Login history */}
+      <div className="bg-card border border-border rounded-xl p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Key size={15} className="text-primary" />
+          </div>
+          <div>
+            <div className="text-[13px] font-medium text-foreground">Журнал входов</div>
+            <div className="text-[11px] text-muted-foreground">Последние 10 попыток аутентификации</div>
+          </div>
+        </div>
+        {MOCK_LOGIN_HISTORY.some(l => !l.success) && (
+          <div className="mb-3 flex items-center gap-2 px-3 py-2 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <AlertTriangle size={12} className="text-destructive flex-shrink-0" />
+            <span className="text-[11px] text-destructive">
+              {MOCK_LOGIN_HISTORY.filter(l => !l.success).length} неудачных попытки входа за последние 7 дней
+            </span>
+          </div>
+        )}
+        <div className="space-y-0 overflow-hidden rounded-lg border border-border">
+          {MOCK_LOGIN_HISTORY.map((entry, i) => (
+            <div key={entry.id}
+              className={`flex items-center justify-between px-3 py-2 text-[11px] ${
+                i % 2 === 0 ? "bg-muted/30" : ""
+              } ${!entry.success ? "bg-destructive/5" : ""}`}>
+              <div className="flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                  entry.success ? "bg-emerald-400" : "bg-destructive"
+                }`} />
+                <span className="text-muted-foreground mono">{entry.ip}</span>
+                <span className="text-muted-foreground">{entry.location}</span>
+              </div>
+              <div className="flex items-center gap-3 text-right">
+                <span className="text-muted-foreground hidden sm:block">{entry.device}</span>
+                <span className="mono text-muted-foreground">{entry.time}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                  entry.success
+                    ? "bg-emerald-400/10 text-emerald-400"
+                    : "bg-destructive/10 text-destructive"
+                }`}>
+                  {entry.success ? "Успешно" : "Отказано"}
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

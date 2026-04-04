@@ -572,6 +572,40 @@ export default function RightPanel() {
               </div>
             </div>
 
+            {budgetPct >= 90 && (
+              <div className="flex items-start gap-2 px-3 py-2.5 bg-yellow-400/10 border border-yellow-400/30 rounded-lg">
+                <span className="text-yellow-400 mt-0.5 flex-shrink-0">⚠</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] text-yellow-400 font-medium">
+                    {budgetPct >= 100 ? "Бюджет исчерпан" : `Использовано ${budgetPct.toFixed(0)}% лимита`}
+                  </div>
+                  <div className="text-[10px] text-yellow-400/70 mt-0.5">
+                    {formatCost(taskCost)} / {formatCost(budgetLimit)}
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    {[1.5, 2, 5].map(mult => (
+                      <button
+                        key={mult}
+                        onClick={() => {
+                          if (!activeTask) return;
+                          const newLimit = parseFloat((budgetLimit * mult).toFixed(2));
+                          dispatch({ type: "UPDATE_TASK_BUDGET", taskId: activeTask.id, budget: newLimit });
+                          toast.success(`Лимит увеличен до $${newLimit.toFixed(2)}`);
+                        }}
+                        className="text-[10px] px-2 py-1 bg-yellow-400/20 hover:bg-yellow-400/30 text-yellow-400 rounded transition-colors">
+                        ×{mult}
+                      </button>
+                    ))}
+                    <button
+                      onClick={startEditBudget}
+                      className="text-[10px] px-2 py-1 bg-yellow-400/20 hover:bg-yellow-400/30 text-yellow-400 rounded transition-colors">
+                      Свой
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="border-t border-border pt-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Разбивка по шагам</div>
               {ENRICHED_STEPS.map(step => (
