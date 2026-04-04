@@ -946,16 +946,19 @@ function InputCard({
               <ChevronDown size={9} className="opacity-50" />
             </button>
             {showModePicker && (
-              <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[160px]">
-                {CHAT_MODES.map(mode => (
-                  <button key={mode.id} onClick={() => { setChatMode(mode.id); setShowModePicker(false); }}
-                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent transition-colors ${
-                      chatMode === mode.id ? "text-primary" : "text-foreground"
-                    }`}>
-                    <span>{mode.icon}</span><span>{mode.label}</span>
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowModePicker(false)} />
+                <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[160px]">
+                  {CHAT_MODES.map(mode => (
+                    <button key={mode.id} onClick={() => { setChatMode(mode.id); setShowModePicker(false); }}
+                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent transition-colors ${
+                        chatMode === mode.id ? "text-primary" : "text-foreground"
+                      }`}>
+                      <span>{mode.icon}</span><span>{mode.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
           </div>
 
@@ -972,31 +975,34 @@ function InputCard({
                 <ChevronDown size={9} className="opacity-50" />
               </button>
               {showModelPicker && (
-                <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[260px] max-h-64 overflow-y-auto">
-                  {["fast", "standard", "genius", "optimum"].map(tier => {
-                    const tierModels = MODELS.filter(m => m.tier === tier);
-                    if (!tierModels.length) return null;
-                    return (
-                      <div key={tier}>
-                        <div className="px-3 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/50">
-                          {TIER_LABELS[tier]}
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowModelPicker(false)} />
+                  <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[260px] max-h-64 overflow-y-auto">
+                    {["fast", "standard", "genius", "optimum"].map(tier => {
+                      const tierModels = MODELS.filter(m => m.tier === tier);
+                      if (!tierModels.length) return null;
+                      return (
+                        <div key={tier}>
+                          <div className="px-3 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/50">
+                            {TIER_LABELS[tier]}
+                          </div>
+                          {tierModels.map(m => (
+                            <button key={m.id} onClick={() => { setSelectedModel(m.id); setShowModelPicker(false); }}
+                              className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors ${
+                                selectedModel === m.id ? "bg-accent/50" : ""
+                              }`}>
+                              <span className="text-[12px]" style={{ color: m.color }}>{m.icon}</span>
+                              <div className="flex-1 text-left">
+                                <div className="text-[11px] text-foreground">{m.name}</div>
+                              </div>
+                              <div className="mono text-[9px] text-muted-foreground">${m.costIn}/${m.costOut}</div>
+                            </button>
+                          ))}
                         </div>
-                        {tierModels.map(m => (
-                          <button key={m.id} onClick={() => { setSelectedModel(m.id); setShowModelPicker(false); }}
-                            className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors ${
-                              selectedModel === m.id ? "bg-accent/50" : ""
-                            }`}>
-                            <span className="text-[12px]" style={{ color: m.color }}>{m.icon}</span>
-                            <div className="flex-1 text-left">
-                              <div className="text-[11px] text-foreground">{m.name}</div>
-                            </div>
-                            <div className="mono text-[9px] text-muted-foreground">${m.costIn}/${m.costOut}</div>
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -1057,6 +1063,18 @@ export default function ChatPanel() {
       setShowFollowUp(false);
     }
   }, [activeTask?.messages]);
+
+  // Close all popups on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowModelPicker(false);
+        setShowModePicker(false);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const handleStop = () => {
     stopRef.current = true;

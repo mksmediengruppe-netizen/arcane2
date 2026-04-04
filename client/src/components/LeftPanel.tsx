@@ -116,7 +116,20 @@ export default function LeftPanel() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Flatten all tasks for search
+  // Close popups on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowNotifications(false);
+        setNavExpanded(false);
+        setSearchQuery("");
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+
+  // Flatten all tasks for searchh
   const allTasks = state.projects.flatMap(p =>
     p.tasks.map(t => ({ ...t, projectName: p.name, projectId: p.id }))
   );
@@ -665,7 +678,9 @@ export default function LeftPanel() {
       <div className="border-t border-border flex-shrink-0">
         {/* Collapsible nav list */}
         {navExpanded && (
-          <div className="py-1 border-b border-border">
+          <>
+          <div className="fixed inset-0 z-10" onClick={() => setNavExpanded(false)} />
+          <div className="py-1 border-b border-border relative z-20">
             {navItems.map(item => (
               <button key={item.view}
                 onClick={() => { dispatch({ type: "SET_ACTIVE_VIEW", view: item.view }); setNavExpanded(false); }}
@@ -692,6 +707,7 @@ export default function LeftPanel() {
               <kbd className="text-[10px] text-muted-foreground/50 font-mono">⌘G</kbd>
             </button>
           </div>
+          </>
         )}
 
         {/* User row — click to toggle nav */}
