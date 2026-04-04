@@ -51,6 +51,9 @@ const AGENT_STEPS_SEQUENCE = [
 
 // Realistic per-step durations (ms) matching AGENT_STEPS_SEQUENCE order
 const STEP_DURATIONS = [800, 1400, 300, 3200, 2100, 1800];
+// Estimated cost per step in USD (Browser=scraping, SSH=compute, FileSystem=free, LLM=tokens)
+const STEP_COSTS = [0.0012, 0.0018, 0.0004, 0.0085, 0.0031, 0.0124];
+const formatStepCost = (usd: number) => `$${usd.toFixed(4)}`;
 
 function StepTimer({ startedAt, finalMs }: { startedAt: number | null; finalMs: number | null }) {
   const [elapsed, setElapsed] = useState(0);
@@ -148,6 +151,13 @@ function TaskProgress({ progress }: { progress: number }) {
               {totalSecs}
             </span>
           )}
+          {doneCount > 0 && (
+            <span className={`mono text-[11px] tabular-nums ${
+              isComplete ? 'text-emerald-400/80' : 'text-muted-foreground/70'
+            }`}>
+              ${STEP_COSTS.slice(0, doneCount).reduce((a, b) => a + b, 0).toFixed(4)}
+            </span>
+          )}
           <span className="mono text-[11px] text-muted-foreground">
             {Math.min(doneCount + (activeIdx >= 0 ? 1 : 0), total)} / {total}
           </span>
@@ -194,12 +204,19 @@ function TaskProgress({ progress }: { progress: number }) {
                     </div>
                   )}
                 </div>
-                {/* Timer */}
+                {/* Timer + Cost */}
                 {(isDone || isActive) && (
-                  <StepTimer
-                    startedAt={isActive ? stepStartTimes[i] : null}
-                    finalMs={isDone ? stepFinalMs[i] : null}
-                  />
+                  <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                    <StepTimer
+                      startedAt={isActive ? stepStartTimes[i] : null}
+                      finalMs={isDone ? stepFinalMs[i] : null}
+                    />
+                    <span className={`mono text-[10px] tabular-nums ${
+                      isDone ? 'text-muted-foreground/40' : 'text-amber-400/70 animate-pulse'
+                    }`}>
+                      {formatStepCost(STEP_COSTS[i])}
+                    </span>
+                  </div>
                 )}
               </div>
             );
