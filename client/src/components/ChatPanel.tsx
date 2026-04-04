@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useApp } from "@/contexts/AppContext";
 import { MODELS, formatCost, Message } from "@/lib/mockData";
+import { api } from "@/lib/api";
 import { getProjectCost } from "@/lib/store";
 import {
   Send, ChevronDown, Brain, Zap, ChevronRight, Copy, RotateCcw,
@@ -1658,30 +1659,77 @@ export default function ChatPanel() {
     setShowFollowUp(false);
 
     const activeSynth = chatMode === "collective" ? (collectiveSynthModel || COLLECTIVE_SYNTH) : selectedModel;
-    const fullText = chatMode === "collective"
-      ? "[COLLECTIVE]" + simulateResponse(activeTask?.name || "задача", activeSynth)
-      : simulateResponse(activeTask?.name || "задача", selectedModel);
-
-    const model = MODELS.find(m => m.id === selectedModel);
-    const costPerChar = (model?.costOut || 5) / 1_000_000 / 4;
     const sendStartTime = Date.now();
-    let i = 0;
-    intervalRef.current = setInterval(() => {
-      if (stopRef.current) return;
-      if (i >= fullText.length) {
-        clearInterval(intervalRef.current!);
-        const finalCost = parseFloat((fullText.length * costPerChar).toFixed(4));
+
+    // ── Real API call ──────────────────────────────────────────────────────
+    const runApiCall = async () => {
+      try {
+        let responseContent = "";
+        let finalCost = 0;
+        let tokensIn = 0;
+        let tokensOut = 0;
+
+        if (chatMode === "collective") {
+          // Collective Mind endpoint
+          const res = await api.collectiveMind.run({
+            prompt: text,
+            models: collectiveModelIds.length > 0 ? collectiveModelIds : COLLECTIVE_MODELS,
+            judge: collectiveSynthModel || COLLECTIVE_SYNTH,
+            project_id: state.activeProjectId!,
+          });
+          responseContent = res.final_answer || res.consensus || "";
+          finalCost = res.total_cost_usd || 0;
+        } else {
+          // Standard task submission
+          const res = await api.tasks.submit(state.activeProjectId!, {
+            task: text,
+            mode: chatMode,
+            budget_limit: activeProject?.budget,
+          });
+          responseContent = res.run.output || "";
+          finalCost = res.run.actual_cost || 0;
+          // Poll for completion if still running
+          if (res.run.status !== "done" && res.run.status !== "failed") {
+            let run = res.run;
+            let attempts = 0;
+            while (run.status !== "done" && run.status !== "failed" && run.status !== "cancelled" && attempts < 120) {
+              if (stopRef.current) {
+                await api.tasks.cancel(run.run_id).catch(() => {});
+                break;
+              }
+              await new Promise(r => setTimeout(r, 2000));
+              const pollRes = await api.tasks.getRun(run.run_id);
+              run = pollRes.run;
+              attempts++;
+              // Stream partial output
+              if (run.output) {
+                setStreamingText(run.output);
+              }
+            }
+            responseContent = run.output || "";
+            finalCost = run.actual_cost || 0;
+          }
+        }
+
+        if (stopRef.current) {
+          setIsGenerating(false);
+          setStreamingText("");
+          setLiveCost(0);
+          return;
+        }
+
+        const latency = parseFloat(((Date.now() - sendStartTime) / 1000).toFixed(1));
         const aiMsg: Message = {
           id: `m${Date.now()}`, role: "assistant",
           model: chatMode === "collective" ? activeSynth : selectedModel,
-          content: chatMode === "collective" ? fullText.replace("[COLLECTIVE]", "") : fullText,
+          content: responseContent,
           timestamp: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
-          tokens: { in: Math.floor(Math.random() * 1000 + 500), out: Math.floor(fullText.length / 4) },
+          tokens: { in: tokensIn || Math.floor(text.length / 4), out: tokensOut || Math.floor(responseContent.length / 4) },
           cost: finalCost,
-          latency: parseFloat(((Date.now() - sendStartTime) / 1000).toFixed(1)),
+          latency,
         };
         dispatch({ type: "ADD_MESSAGE", projectId: state.activeProjectId!, taskId: state.activeTaskId!, message: aiMsg });
-        dispatch({ type: "UPDATE_TASK_STATUS", projectId: state.activeProjectId!, taskId: state.activeTaskId!, status: "done", duration: `${Math.floor(Math.random() * 5 + 1)}m ${Math.floor(Math.random() * 59)}s` });
+        dispatch({ type: "UPDATE_TASK_STATUS", projectId: state.activeProjectId!, taskId: state.activeTaskId!, status: "done", duration: `${latency}s` });
 
         if (activeProject?.budget != null) {
           const newProjectCost = projectCost + finalCost;
@@ -1697,16 +1745,17 @@ export default function ChatPanel() {
             });
           }
         }
+      } catch (err: any) {
+        toast.error("Ошибка API", { description: err?.message || "Не удалось получить ответ" });
+        dispatch({ type: "UPDATE_TASK_STATUS", projectId: state.activeProjectId!, taskId: state.activeTaskId!, status: "error" });
+      } finally {
         setIsGenerating(false);
         setStreamingText("");
         setLiveCost(0);
-        return;
       }
-      const chunk = fullText.slice(0, i + 8);
-      setStreamingText(chunk);
-      setLiveCost(parseFloat((chunk.length * costPerChar).toFixed(4)));
-      i += 8;
-    }, 30);
+    };
+
+    runApiCall();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

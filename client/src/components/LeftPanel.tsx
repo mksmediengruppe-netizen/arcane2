@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { getProjectCost, View } from "@/lib/store";
 import { formatCostShort, formatCost } from "@/lib/mockData";
+import { api } from "@/lib/api";
+import { mapBackendModel } from "@/lib/modelMapper";
 import {
   FolderOpen, Plus, ChevronDown, ChevronRight,
   LayoutDashboard, Settings, Users, BookOpen,
@@ -114,6 +116,28 @@ export default function LeftPanel() {
   const searchRef = useRef<HTMLInputElement>(null);
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  // Load projects from backend on mount
+  useEffect(() => {
+    api.projects.list().then(res => {
+      if (res.projects && res.projects.length > 0) {
+        const mapped = res.projects.map(p => ({
+          id: p.id,
+          name: p.name,
+          tasks: [],
+          createdAt: new Date(p.created_at * 1000).toISOString().split('T')[0],
+          budget: p.budget_limit || undefined,
+        }));
+        dispatch({ type: 'SET_PROJECTS', projects: mapped });
+        // Auto-select first project
+        if (mapped.length > 0) {
+          dispatch({ type: 'SET_ACTIVE_TASK', projectId: mapped[0].id, taskId: '' });
+        }
+      }
+    }).catch(() => {
+      // Backend not reachable — keep empty state, user can create projects
+    });
+  }, []);
+
   // Ctrl+F / Cmd+F focuses search (Cmd+K is reserved for CommandPalette in MainLayout)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -158,9 +182,22 @@ export default function LeftPanel() {
     });
   };
 
-  const handleAddProject = () => {
+  const handleAddProject = async () => {
     if (!newProjectName.trim()) return;
-    dispatch({ type: "ADD_PROJECT", name: newProjectName.trim() });
+    const name = newProjectName.trim();
+    try {
+      const res = await api.projects.create({ name });
+      const p = res.project;
+      dispatch({ type: 'ADD_PROJECT', name: p.name });
+      // Replace the locally-created project id with the real backend id
+      dispatch({ type: 'SET_PROJECTS', projects: [
+        ...state.projects,
+        { id: p.id, name: p.name, tasks: [], createdAt: new Date(p.created_at * 1000).toISOString().split('T')[0] }
+      ]});
+    } catch {
+      // Fallback: create locally if backend unreachable
+      dispatch({ type: "ADD_PROJECT", name });
+    }
     setNewProjectName("");
     setShowNewProject(false);
   };

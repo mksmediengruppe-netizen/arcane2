@@ -1,9 +1,10 @@
 // AdminGroupsPage — Groups management with members, manager, budget
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ADMIN_GROUPS, ADMIN_USERS,
   type AdminGroup, type BudgetPeriod, type BudgetAction,
 } from "@/lib/mockData";
+import { api } from "@/lib/api";
 
 const PERIOD_LABELS: Record<BudgetPeriod, string> = {
   day: "День", week: "Неделя", month: "Месяц", total: "Всего",
@@ -161,7 +162,25 @@ function GroupModal({ group, onClose, onSave }: GroupModalProps) {
 }
 
 export default function AdminGroupsPage() {
-  const [groups, setGroups] = useState<AdminGroup[]>(ADMIN_GROUPS);
+  const [groups, setGroups] = useState<AdminGroup[]>([]);
+
+  useEffect(() => {
+    api.admin.groups.list().then((data: any) => {
+      const mapped: AdminGroup[] = (data.groups || data || []).map((g: any, idx: number) => ({
+        id: g.id || `g${Date.now()}`,
+        name: g.name || "",
+        description: g.description || "",
+        managerId: g.manager_id || g.managerId || undefined,
+        memberIds: g.member_ids || g.members || [],
+        members: g.member_ids || g.members || [],
+        budget: g.budget ? { amount: g.budget, period: (g.budget_period || "month") as BudgetPeriod, alertThreshold: g.budget_alert || 80, actionOnExceed: (g.budget_action || "warn") as BudgetAction } : null,
+        spent: g.spent_usd || g.spent || 0,
+        color: g.color || GROUP_COLORS[idx % GROUP_COLORS.length],
+        createdAt: g.created_at || new Date().toISOString(),
+      }));
+      setGroups(mapped.length > 0 ? mapped : ADMIN_GROUPS);
+    }).catch(() => setGroups(ADMIN_GROUPS));
+  }, []);
   const [editGroup, setEditGroup] = useState<AdminGroup | null | undefined>(undefined);
 
   function handleSave(g: AdminGroup) {

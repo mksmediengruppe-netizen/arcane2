@@ -1,7 +1,8 @@
 // AdminUsersPage — Design: clean admin table, slate/blue palette, modal overlays
 // Role: Superadmin/Admin only. Shows all users, create/edit/block actions.
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { api } from "@/lib/api";
 import {
   ADMIN_USERS, ADMIN_GROUPS, MODELS, DEFAULT_PERMISSIONS,
   type AdminUser, type UserRole, type UserStatus, type BudgetPeriod,
@@ -269,7 +270,27 @@ function UserModal({ user, onClose, onSave }: UserModalProps) {
 }
 
 export default function AdminUsersPage() {
-  const [users, setUsers] = useState<AdminUser[]>(ADMIN_USERS);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+
+  useEffect(() => {
+    api.admin.users.list().then((data: any) => {
+      const mapped: AdminUser[] = (data.users || data || []).map((u: any) => ({
+        id: u.id || u.user_id || `u${Date.now()}`,
+        name: u.name || u.username || u.email?.split("@")[0] || "—",
+        email: u.email || "",
+        role: (u.role as UserRole) || "user",
+        status: (u.status as UserStatus) || "active",
+        spent: u.spent_usd || u.spent || 0,
+        budget: u.budget ? { amount: u.budget, period: (u.budget_period || "month") as BudgetPeriod, alert: u.budget_alert || 80, action: (u.budget_action || "warn") as BudgetAction } : null,
+        group: u.group_id || u.group || undefined,
+        permissions: u.permissions || DEFAULT_PERMISSIONS,
+        task_visibility: (u.task_visibility as TaskVisibility) || "own",
+        created_at: u.created_at || new Date().toISOString(),
+        last_active: u.last_active || u.last_login || undefined,
+      }));
+      setUsers(mapped.length > 0 ? mapped : ADMIN_USERS);
+    }).catch(() => setUsers(ADMIN_USERS));
+  }, []);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
   const [statusFilter, setStatusFilter] = useState<UserStatus | "all">("all");

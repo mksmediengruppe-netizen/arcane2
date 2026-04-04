@@ -4,8 +4,10 @@
  * Shows all 13 LLM models + 6 image generation models with filters, search, pricing
  */
 
-import { useState } from "react";
-import { MODELS, IMAGE_MODELS } from "@/lib/mockData";
+import { useState, useEffect } from "react";
+import { MODELS, IMAGE_MODELS, type ModelEntry } from "@/lib/mockData";
+import { api } from "@/lib/api";
+import { mapBackendModel, type DisplayModel } from "@/lib/modelMapper";
 import {
   Search, Brain, Image, Zap, Star, DollarSign, Cpu, Globe,
   CheckCircle2, ChevronRight, Info, SortAsc, SortDesc
@@ -198,6 +200,19 @@ export default function ModelsPage() {
   const [filter, setFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"name" | "cost" | "swe">("name");
   const [sortAsc, setSortAsc] = useState(true);
+  const [llmModels, setLlmModels] = useState<(ModelEntry | DisplayModel)[]>(MODELS);
+
+  // Load models from backend
+  useEffect(() => {
+    api.models.list().then(res => {
+      if (res.llm_models && res.llm_models.length > 0) {
+        const mapped = res.llm_models.map(mapBackendModel);
+        setLlmModels(mapped);
+      }
+    }).catch(() => {
+      // Keep MODELS fallback if backend unreachable
+    });
+  }, []);
 
   const toggleSort = (key: typeof sortBy) => {
     if (sortBy === key) setSortAsc(v => !v);
@@ -205,7 +220,7 @@ export default function ModelsPage() {
   };
 
   // Filter + sort LLM models
-  const filteredLLM = MODELS
+  const filteredLLM = llmModels
     .filter(m => {
       const q = search.toLowerCase();
       const matchSearch = m.name.toLowerCase().includes(q) || m.provider.toLowerCase().includes(q) || m.id.includes(q);

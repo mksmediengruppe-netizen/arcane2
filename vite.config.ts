@@ -184,5 +184,12 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    proxy: {
+      "/api": {
+        target: "http://2.56.240.170:8900",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
 });

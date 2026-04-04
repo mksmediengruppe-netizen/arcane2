@@ -1,6 +1,7 @@
 // AdminLogsPage — Full audit log with filters and CSV export
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { AUDIT_LOGS, ADMIN_USERS, ADMIN_GROUPS, type AuditLogEntry } from "@/lib/mockData";
+import { api } from "@/lib/api";
 
 const ACTION_LABELS: Record<string, string> = {
   task_created: "Задача создана",
@@ -35,6 +36,7 @@ const ACTION_COLORS: Record<string, string> = {
 const PAGE_SIZE = 20;
 
 export default function AdminLogsPage() {
+  const [logs, setLogs] = useState<AuditLogEntry[]>(AUDIT_LOGS);
   const [search, setSearch] = useState("");
   const [userFilter, setUserFilter] = useState("all");
   const [groupFilter, setGroupFilter] = useState("all");
@@ -43,8 +45,27 @@ export default function AdminLogsPage() {
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
 
+  useEffect(() => {
+    api.admin.logs.list().then((data: any) => {
+      const entries: AuditLogEntry[] = (data.logs || data || []).map((l: any) => ({
+        id: l.id || `log${Date.now()}`,
+        userId: l.user_id || l.userId || "",
+        userName: l.user_name || l.userName || l.user_id || "",
+        status: l.action || l.status || "task_created",
+        timestamp: l.timestamp || l.created_at || new Date().toISOString(),
+        projectName: l.project_name || l.projectName || undefined,
+        taskName: l.task_name || l.taskName || undefined,
+        modelId: l.model_id || l.modelId || undefined,
+        cost: l.cost_usd || l.cost || undefined,
+        details: l.details || undefined,
+        groupId: l.group_id || l.groupId || undefined,
+      }));
+      if (entries.length > 0) setLogs(entries);
+    }).catch(() => { /* keep mock fallback */ });
+  }, []);
+
   const filtered = useMemo(() => {
-    return AUDIT_LOGS.filter(log => {
+    return logs.filter(log => {
       if (userFilter !== "all" && log.userId !== userFilter) return false;
       if (groupFilter !== "all") {
         const user = ADMIN_USERS.find(u => u.id === log.userId);

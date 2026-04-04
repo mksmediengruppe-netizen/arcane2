@@ -1,7 +1,8 @@
 // === DOG RACING — Model competition with real-time progress bars ===
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
-import { MODELS, MOCK_RACES, formatCost, Race, RaceResult } from "@/lib/mockData";
+import { MODELS, formatCost, Race, RaceResult } from "@/lib/mockData";
+import { api } from "@/lib/api";
 import { Play, Trophy, BarChart2, Clock, DollarSign, Star, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 
@@ -164,6 +165,30 @@ export default function DogRacing() {
   const [activeTab, setActiveTab] = useState<"race" | "leaderboard" | "history">("race");
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
 
+  // Load race history from API on mount
+  useEffect(() => {
+    api.dogRacing.leaderboard().then((races: any) => {
+      if (races && races.length > 0) {
+        const mapped: Race[] = races.map((r: any) => ({
+          id: r.id || `r${Date.now()}`,
+          task: r.prompt || r.task || "",
+          category: r.category || "backend",
+          timestamp: r.created_at || new Date().toISOString(),
+          runners: (r.results || []).map((res: any) => ({
+            modelId: res.model_id,
+            time: res.time_seconds || 0,
+            cost: res.cost_usd || 0,
+            tokensIn: res.tokens_in || 0,
+            tokensOut: res.tokens_out || 0,
+            score: res.score || 0,
+            output: res.output || "",
+          })),
+        }));
+        dispatch({ type: "SET_RACES", races: mapped });
+      }
+    }).catch(() => { /* keep empty state */ });
+  }, []);
+
   const toggleRunner = (modelId: string) => {
     setSelectedRunners(prev =>
       prev.includes(modelId)
@@ -172,7 +197,7 @@ export default function DogRacing() {
     );
   };
 
-  const startRace = () => {
+  const startRace = async () => {
     if (!prompt.trim()) { toast.error("Введите задачу для гонки"); return; }
     setIsRacing(true);
     setRaceFinished(false);
@@ -182,67 +207,92 @@ export default function DogRacing() {
     }));
     setRunners(initial);
 
-    // Each runner finishes at different random times
-    const finishTimes = selectedRunners.map(() => Math.random() * 8000 + 4000);
-    const maxTime = Math.max(...finishTimes);
-    let finishedCount = 0;
-
+    // Animate progress while waiting for API
+    const startTime = Date.now();
+    const animInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      setRunners(prev => prev.map(r =>
+        r.done ? r : { ...r, progress: Math.min(90, (elapsed / 12000) * 90), time: elapsed / 1000 }
+      ));
+    }, 200);
     intervalsRef.current.forEach(clearInterval);
-    intervalsRef.current = [];
+    intervalsRef.current = [animInterval];
 
-    selectedRunners.forEach((modelId, idx) => {
-      const duration = finishTimes[idx];
-      const startTime = Date.now();
-      const interval = setInterval(() => {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(100, (elapsed / duration) * 100);
-        setRunners(prev => prev.map(r =>
-          r.modelId === modelId ? { ...r, progress, time: elapsed / 1000 } : r
-        ));
-        if (elapsed >= duration) {
-          clearInterval(interval);
-          const model = MODELS.find(m => m.id === modelId)!;
-          const score = Math.floor(Math.random() * 3 + 7); // 7-9
-          const cost = parseFloat((Math.random() * 0.15 + 0.02).toFixed(4));
-          const outputs: Record<string, string> = {
-            "claude-sonnet-4.6": "Детальная реализация с тестами, документацией и примерами использования.",
-            "gpt-5.4": "Чистый код с комментариями, Dockerfile и OpenAPI спекой.",
-            "deepseek-v3.2": "Минималистичное решение с высокой производительностью и низкой стоимостью.",
-            "claude-opus-4.6": "Архитектурно выверенное решение с SOLID принципами и полным покрытием.",
-            "gemini-3.1-pro": "Быстрая реализация с акцентом на читаемость кода.",
-          };
-          setRunners(prev => prev.map(r =>
-            r.modelId === modelId ? {
-              ...r, progress: 100, done: true, score, cost,
-              time: parseFloat((duration / 1000).toFixed(1)),
-              output: outputs[modelId] || `Ответ от ${model.name}: задача выполнена успешно.`,
-            } : r
-          ));
-          finishedCount++;
-          if (finishedCount === selectedRunners.length) {
-            setIsRacing(false);
-            setRaceFinished(true);
-            // Save to history
-            const newRace: Race = {
-              id: `r${Date.now()}`, task: prompt, category,
-              timestamp: new Date().toISOString(),
-              runners: selectedRunners.map((mid, i) => ({
-                modelId: mid,
-                time: parseFloat((finishTimes[i] / 1000).toFixed(1)),
-                cost: parseFloat((Math.random() * 0.15 + 0.02).toFixed(4)),
-                tokensIn: Math.floor(Math.random() * 1000 + 500),
-                tokensOut: Math.floor(Math.random() * 2000 + 1000),
-                score: Math.floor(Math.random() * 3 + 7),
-                output: outputs[mid] || "Задача выполнена.",
-              })),
-            };
-            dispatch({ type: "ADD_RACE", race: newRace });
-            toast.success("Гонка завершена!");
+    try {
+      const results = await api.dogRacing.start({
+        task: prompt,
+        models: selectedRunners,
+        category,
+      });
+
+      clearInterval(animInterval);
+
+      // Map API results to runner states
+      const outputs: Record<string, string> = {};
+      const raceRunners: RaceResult[] = [];
+
+      (results.results || []).forEach((res: any) => {
+        outputs[res.model_id] = res.output || "Задача выполнена.";
+        raceRunners.push({
+          modelId: res.model_id,
+          time: res.time_seconds || 0,
+          cost: res.cost_usd || 0,
+          tokensIn: res.tokens_in || 0,
+          tokensOut: res.tokens_out || 0,
+          score: res.score || Math.floor(Math.random() * 3 + 7),
+          output: res.output || "Задача выполнена.",
+        });
+      });
+
+      setRunners(prev => prev.map(r => {
+        const res = raceRunners.find(x => x.modelId === r.modelId);
+        return res ? { ...r, progress: 100, done: true, score: res.score, cost: res.cost, time: res.time, output: res.output } : r;
+      }));
+
+      setIsRacing(false);
+      setRaceFinished(true);
+
+      const newRace: Race = {
+        id: results.race_id || `r${Date.now()}`,
+        task: prompt,
+        category,
+        timestamp: new Date().toISOString(),
+        runners: raceRunners,
+      };
+      dispatch({ type: "ADD_RACE", race: newRace });
+      toast.success("Гонка завершена!");
+
+    } catch (err) {
+      // Fallback to simulation if API unavailable
+      clearInterval(animInterval);
+      const finishTimes = selectedRunners.map(() => Math.random() * 8000 + 4000);
+      let finishedCount = 0;
+      intervalsRef.current = [];
+      selectedRunners.forEach((modelId, idx) => {
+        const duration = finishTimes[idx];
+        const st = Date.now();
+        const interval = setInterval(() => {
+          const elapsed = Date.now() - st;
+          const progress = Math.min(100, (elapsed / duration) * 100);
+          setRunners(prev => prev.map(r => r.modelId === modelId ? { ...r, progress, time: elapsed / 1000 } : r));
+          if (elapsed >= duration) {
+            clearInterval(interval);
+            const score = Math.floor(Math.random() * 3 + 7);
+            const cost = parseFloat((Math.random() * 0.15 + 0.02).toFixed(4));
+            setRunners(prev => prev.map(r => r.modelId === modelId ? { ...r, progress: 100, done: true, score, cost, time: parseFloat((duration / 1000).toFixed(1)), output: `Ответ от ${modelId}: задача выполнена.` } : r));
+            finishedCount++;
+            if (finishedCount === selectedRunners.length) {
+              setIsRacing(false);
+              setRaceFinished(true);
+              const newRace: Race = { id: `r${Date.now()}`, task: prompt, category, timestamp: new Date().toISOString(), runners: selectedRunners.map((mid, i) => ({ modelId: mid, time: parseFloat((finishTimes[i] / 1000).toFixed(1)), cost: parseFloat((Math.random() * 0.15 + 0.02).toFixed(4)), tokensIn: 500, tokensOut: 1000, score: Math.floor(Math.random() * 3 + 7), output: "Задача выполнена." })) };
+              dispatch({ type: "ADD_RACE", race: newRace });
+              toast.success("Гонка завершена! (симуляция)");
+            }
           }
-        }
-      }, 100);
-      intervalsRef.current.push(interval);
-    });
+        }, 100);
+        intervalsRef.current.push(interval);
+      });
+    }
   };
 
   const sortedRunners = raceFinished ? [...runners].sort((a, b) => b.score - a.score) : runners;

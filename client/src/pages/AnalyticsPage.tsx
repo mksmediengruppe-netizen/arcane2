@@ -3,7 +3,8 @@
 // Layout: Asymmetric grid — wide charts left, KPI column right
 // Charts: Recharts with custom dark theme, subtle gradients, no chartjunk
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { api } from "@/lib/api";
 import { useApp } from "@/contexts/AppContext";
 import { MOCK_PROJECTS, DASHBOARD_DAILY, MODELS } from "@/lib/mockData";
 import {
@@ -207,6 +208,14 @@ export default function AnalyticsPage() {
   const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
 
   const allTasks = useMemo(() => enrichedTasks(), []);
+
+  // ── Load real spending data from API (overlay on mock if available) ───────
+  const [apiSpending, setApiSpending] = useState<any>(null);
+  useEffect(() => {
+    api.admin.spending.overview().then((data: any) => {
+      setApiSpending(data);
+    }).catch(() => { /* keep mock data */ });
+  }, []);
 
   // ── Compute date range ───────────────────────────────────────────────────
   const dateRange = useMemo(() => {

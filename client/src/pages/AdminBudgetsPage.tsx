@@ -1,9 +1,10 @@
 // AdminBudgetsPage — 3-level budget management: org / group / user
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ADMIN_USERS, ADMIN_GROUPS,
   type AdminUser, type AdminGroup, type BudgetPeriod, type BudgetAction,
 } from "@/lib/mockData";
+import { api } from "@/lib/api";
 
 const PERIOD_LABELS: Record<BudgetPeriod, string> = {
   day: "День", week: "Неделя", month: "Месяц", total: "Всего",
@@ -149,8 +150,49 @@ function EditModal({ title, budget, onClose, onSave }: EditModalProps) {
 }
 
 export default function AdminBudgetsPage() {
-  const [users, setUsers] = useState<AdminUser[]>(ADMIN_USERS);
-  const [groups, setGroups] = useState<AdminGroup[]>(ADMIN_GROUPS);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [groups, setGroups] = useState<AdminGroup[]>([]);
+
+  useEffect(() => {
+    api.admin.users.list().then((data: any) => {
+      const mapped: AdminUser[] = (data.users || data || []).map((u: any) => ({
+        id: u.id || `u${Date.now()}`,
+        name: u.name || u.email?.split("@")[0] || "—",
+        email: u.email || "",
+        role: u.role || "user",
+        status: u.status || "active",
+        spent: u.spent_usd || u.spent || 0,
+        budget: u.budget ? { amount: u.budget, period: (u.budget_period || "month") as BudgetPeriod, alertThreshold: u.budget_alert || 80, actionOnExceed: (u.budget_action || "warn") as BudgetAction } : null,
+        groupId: u.group_id || undefined,
+        group: u.group_id || undefined,
+        permissions: u.permissions || { allowedModelIds: [] },
+        taskVisibility: u.task_visibility || "own",
+        task_visibility: u.task_visibility || "own",
+        createdAt: u.created_at || new Date().toISOString(),
+        created_at: u.created_at || new Date().toISOString(),
+        lastActiveAt: u.last_active || new Date().toISOString(),
+        avatarInitials: (u.name || u.email || "?").substring(0, 2).toUpperCase(),
+        avatarColor: "#6366f1",
+      }));
+      setUsers(mapped.length > 0 ? mapped : ADMIN_USERS);
+    }).catch(() => setUsers(ADMIN_USERS));
+    api.admin.groups.list().then((data: any) => {
+      const mapped: AdminGroup[] = (data.groups || data || []).map((g: any) => ({
+        id: g.id || `g${Date.now()}`,
+        name: g.name || "",
+        description: g.description || "",
+        managerId: g.manager_id || undefined,
+        memberIds: g.member_ids || g.members || [],
+        members: g.member_ids || g.members || [],
+        budget: g.budget ? { amount: g.budget, period: (g.budget_period || "month") as BudgetPeriod, alertThreshold: g.budget_alert || 80, actionOnExceed: (g.budget_action || "warn") as BudgetAction } : null,
+        spent: g.spent_usd || g.spent || 0,
+        color: g.color || "#6366f1",
+        createdAt: g.created_at || new Date().toISOString(),
+        created_at: g.created_at || new Date().toISOString(),
+      }));
+      setGroups(mapped.length > 0 ? mapped : ADMIN_GROUPS);
+    }).catch(() => setGroups(ADMIN_GROUPS));
+  }, []);
   const [orgBudget, setOrgBudget] = useState<{ amount: number; period: BudgetPeriod; alertThreshold: number; actionOnExceed: BudgetAction } | null>(
     { amount: 500, period: "month", alertThreshold: 80, actionOnExceed: "notify_admin" }
   );
@@ -232,7 +274,7 @@ export default function AdminBudgetsPage() {
                 color={g.color}
                 spent={g.spent}
                 budget={g.budget}
-                subtitle={`${ADMIN_USERS.filter(u => g.memberIds.includes(u.id)).length} участников`}
+                subtitle={`${(g.memberIds || []).length} участников`}
                 onEdit={() => setEditTarget({ type: "group", id: g.id })}
               />
             ))}

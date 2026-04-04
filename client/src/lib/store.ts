@@ -1,5 +1,5 @@
 // === ARCANE 2 — App State Store (no external deps, React-only) ===
-import { MOCK_PROJECTS, MOCK_RACES, Project, Race, Task, Message } from "./mockData";
+import { Project, Race, Task, Message } from "./mockData";
 
 export type View = "chat" | "dog-racing" | "dashboard" | "settings" | "admin" | "playbooks" | "schedule" | "models" | "consolidation" | "analytics" | "admin-users" | "admin-groups" | "admin-permissions" | "admin-budgets" | "admin-logs" | "admin-spending";
 
@@ -39,7 +39,9 @@ export type AppAction =
   | { type: "DUPLICATE_TASK"; projectId: string; taskId: string }
   | { type: "PIN_TASK"; projectId: string; taskId: string }
   | { type: "UPDATE_TASK_AGENTS"; projectId: string; taskId: string; agentIds: string[]; chatMode: string; collectiveModelIds?: string[]; agentModelOverrides?: Record<string, string> }
-  | { type: "UPDATE_TASK_BUDGET"; taskId: string; budget: number };
+  | { type: "UPDATE_TASK_BUDGET"; taskId: string; budget: number }
+  | { type: "SET_PROJECTS"; projects: Project[] }
+  | { type: "SET_RACES"; races: Race[] };
 
 // Read saved theme from localStorage, default to "dark"
 const savedTheme = (typeof window !== "undefined" && (localStorage.getItem("arcane-theme") as "dark" | "light")) || "dark";
@@ -49,11 +51,11 @@ if (typeof document !== "undefined") {
 }
 
 export const initialState: AppState = {
-  projects: MOCK_PROJECTS,
-  activeProjectId: "p1",
-  activeTaskId: "t1",
+  projects: [],
+  activeProjectId: null,
+  activeTaskId: null,
   activeView: "chat",
-  races: MOCK_RACES,
+  races: [],
   leftPanelOpen: true,
   rightPanelOpen: true,
   leftPanelWidth: 260,
@@ -258,6 +260,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       }));
       return { ...state, projects };
     }
+    case "SET_PROJECTS": return { ...state, projects: action.projects };
+    case "SET_RACES": return { ...state, races: action.races };
     default: return state;
   }
 }

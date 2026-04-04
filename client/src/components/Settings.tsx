@@ -1,9 +1,10 @@
 // === SETTINGS — API Keys, Model defaults, User management ===
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MOCK_USERS } from "@/lib/mockData";
 import { Eye, EyeOff, Save, Plus, Trash2, Shield, User, UserCheck, Key, Settings2, Bell, ExternalLink, Lock, Smartphone, Globe, LogOut, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "@/contexts/AppContext";
+import { api } from "@/lib/api";
 
 type SettingsTab = "api" | "models" | "users" | "notifications" | "general" | "security";
 
@@ -13,13 +14,60 @@ const ROLE_LABELS: Record<string, { label: string; color: string; icon: React.Re
   user:        { label: "Пользователь",color: "text-muted-foreground", icon: <User size={11} /> },
 };
 
+const API_KEY_FIELDS = [
+  { key: "openrouter", label: "OpenRouter API Key", desc: "Доступ ко всем LLM-моделям через OpenRouter", placeholder: "sk-or-v1-..." },
+  { key: "manus",      label: "Manus API Key",       desc: "Интеграция с платформой Manus",    placeholder: "mns-..." },
+  { key: "tavily",     label: "Tavily Search API Key",desc: "Поиск в интернете для агентов",   placeholder: "tvly-..." },
+];
+
 function ApiKeysSection() {
-  const [showOpenRouter, setShowOpenRouter] = useState(false);
-  const [showManus, setShowManus] = useState(false);
-  const [showTavily, setShowTavily] = useState(false);
-  const [openRouterKey, setOpenRouterKey] = useState("sk-or-v1-••••••••••••••••••••••••••••••••");
-  const [manusKey, setManusKey] = useState("mns-••••••••••••••••••••••••••••••••");
-  const [tavilyKey, setTavilyKey] = useState("tvly-••••••••••••••••••••••••••••••••");
+  const [keys, setKeys] = useState<Record<string, string>>({});
+  const [show, setShow] = useState<Record<string, boolean>>({});
+  const [testing, setTesting] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    api.admin.settings.getKeys().then((data: any) => {
+      const mapped: Record<string, string> = {};
+      // Handle both array and object response formats
+      if (Array.isArray(data?.keys)) {
+        data.keys.forEach((k: any) => { mapped[k.name] = k.masked_value || ""; });
+      } else if (data && typeof data === "object") {
+        Object.entries(data).forEach(([k, v]: [string, any]) => {
+          mapped[k] = v?.masked || v?.masked_value || "";
+        });
+      }
+      setKeys(mapped);
+    }).catch(() => {
+      // Fallback: show placeholder values
+      setKeys({ openrouter: "sk-or-v1-••••••••••••••••", manus: "mns-••••••••••••••••", tavily: "tvly-••••••••••••••••" });
+    });
+  }, []);
+
+  const handleSave = async (keyName: string) => {
+    setSaving(p => ({ ...p, [keyName]: true }));
+    try {
+      await api.admin.settings.setKey(keyName, keys[keyName] || "");
+      toast.success(`${keyName} сохранён`);
+    } catch {
+      toast.error("Ошибка сохранения");
+    } finally {
+      setSaving(p => ({ ...p, [keyName]: false }));
+    }
+  };
+
+  const handleTest = async (keyName: string) => {
+    setTesting(p => ({ ...p, [keyName]: true }));
+    try {
+      const res = await api.admin.settings.testKey(keyName);
+      if (res.valid) toast.success(`✓ ${keyName} работает`);
+      else toast.error(`✗ ${keyName}: ${res.error || 'Недействительный'}`);
+    } catch {
+      toast.error("Ошибка проверки");
+    } finally {
+      setTesting(p => ({ ...p, [keyName]: false }));
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -27,30 +75,31 @@ function ApiKeysSection() {
         <Shield size={14} className="text-yellow-400" />
         <span className="text-[12px] text-yellow-400 font-medium">Только для Супер-администратора</span>
       </div>
-
-      {[
-        { label: "OpenRouter API Key", value: openRouterKey, setter: setOpenRouterKey, show: showOpenRouter, toggle: () => setShowOpenRouter(v => !v), desc: "Доступ ко всем LLM-моделям через OpenRouter" },
-        { label: "Manus API Key", value: manusKey, setter: setManusKey, show: showManus, toggle: () => setShowManus(v => !v), desc: "Интеграция с платформой Manus" },
-        { label: "Tavily Search API Key", value: tavilyKey, setter: setTavilyKey, show: showTavily, toggle: () => setShowTavily(v => !v), desc: "Поиск в интернете для агентов" },
-      ].map(field => (
-        <div key={field.label} className="bg-card border border-border rounded-xl p-4">
+      {API_KEY_FIELDS.map(field => (
+        <div key={field.key} className="bg-card border border-border rounded-xl p-4">
           <div className="flex items-center justify-between mb-1">
             <label className="text-[12px] font-medium text-foreground">{field.label}</label>
           </div>
           <div className="text-[11px] text-muted-foreground mb-3">{field.desc}</div>
           <div className="flex gap-2">
             <div className="flex-1 relative">
-              <input type={field.show ? "text" : "password"} value={field.value}
-                onChange={e => field.setter(e.target.value)}
+              <input type={show[field.key] ? "text" : "password"}
+                value={keys[field.key] || ""}
+                placeholder={field.placeholder}
+                onChange={e => setKeys(p => ({ ...p, [field.key]: e.target.value }))}
                 className="w-full bg-input border border-border rounded-lg px-3 py-2 text-[12px] font-mono text-foreground outline-none focus:border-primary/50 pr-10" />
-              <button onClick={field.toggle}
+              <button onClick={() => setShow(p => ({ ...p, [field.key]: !p[field.key] }))}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors">
-                {field.show ? <EyeOff size={13} /> : <Eye size={13} />}
+                {show[field.key] ? <EyeOff size={13} /> : <Eye size={13} />}
               </button>
             </div>
-            <button onClick={() => toast.success(`${field.label} сохранён`)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/80 text-primary-foreground rounded-lg text-[12px] transition-colors">
-              <Save size={12} /> Сохранить
+            <button onClick={() => handleTest(field.key)} disabled={testing[field.key]}
+              className="flex items-center gap-1.5 px-3 py-2 bg-muted hover:bg-muted/80 text-foreground rounded-lg text-[12px] transition-colors disabled:opacity-50">
+              {testing[field.key] ? "…" : "✓ Тест"}
+            </button>
+            <button onClick={() => handleSave(field.key)} disabled={saving[field.key]}
+              className="flex items-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/80 text-primary-foreground rounded-lg text-[12px] transition-colors disabled:opacity-50">
+              <Save size={12} /> {saving[field.key] ? "…" : "Сохранить"}
             </button>
           </div>
         </div>

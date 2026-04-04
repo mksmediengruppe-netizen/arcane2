@@ -66,7 +66,23 @@ export interface Race {
   runners: RaceResult[];
 }
 
-export const MODELS = [
+export interface ModelEntry {
+  id: string;
+  name: string;
+  provider: string;
+  color: string;
+  icon: string;
+  costIn: number;
+  costOut: number;
+  tier: string;
+  isFree: boolean;
+  context: number | null;
+  swe: number | null;
+  superpower: string;
+  transport: string;
+}
+
+export const MODELS: ModelEntry[] = [
   // ── Flagship ────────────────────────────────────────────────────────────────
   { id: "claude-opus-4.6",   name: "Claude Opus 4.6",    provider: "Anthropic", color: "#D4A574", icon: "◈", costIn: 5,    costOut: 25,   tier: "genius",  isFree: false, context: 1000, swe: 80.8, superpower: "Deep reasoning, архитектура",     transport: "native" },
   { id: "gpt-5.4",           name: "GPT-5.4",            provider: "OpenAI",    color: "#C4A7E7", icon: "●", costIn: 2.5,  costOut: 15,   tier: "genius",  isFree: false, context: 1000, swe: 80.0, superpower: "Code audit #1",                  transport: "native" },

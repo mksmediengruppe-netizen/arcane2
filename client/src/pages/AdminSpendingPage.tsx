@@ -1,6 +1,7 @@
 // AdminSpendingPage — Spending dashboard: top users, groups, models, limit alerts
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ADMIN_USERS, ADMIN_GROUPS, AUDIT_LOGS } from "@/lib/mockData";
+import { api } from "@/lib/api";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 function ProgressBar({ value, alert }: { value: number; alert: number }) {
@@ -15,11 +16,33 @@ function ProgressBar({ value, alert }: { value: number; alert: number }) {
 const CHART_COLORS = ["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#06B6D4", "#84CC16", "#EC4899"];
 
 export default function AdminSpendingPage() {
-  const totalSpent = useMemo(() => ADMIN_USERS.reduce((s, u) => s + u.spent, 0), []);
+  const [users, setUsers] = useState(ADMIN_USERS);
+  const [groups, setGroups] = useState(ADMIN_GROUPS);
+
+  useEffect(() => {
+    api.admin.spending.overview().then((data: any) => {
+      if (data.users?.length) setUsers(data.users.map((u: any) => ({
+        ...ADMIN_USERS[0],
+        id: u.user_id || u.id || "",
+        name: u.name || u.user_id || "",
+        spent: u.spent_usd || u.spent || 0,
+        budget: u.budget ? { amount: u.budget, period: "month", alert: 80, action: "warn" } : null,
+        group: u.group_id || undefined,
+        status: "active" as const,
+        role: "user" as const,
+        email: u.email || "",
+        permissions: ADMIN_USERS[0].permissions,
+        task_visibility: "own" as const,
+        created_at: u.created_at || new Date().toISOString(),
+      })));
+    }).catch(() => { /* keep mock */ });
+  }, []);
+
+  const totalSpent = useMemo(() => users.reduce((s, u) => s + u.spent, 0), [users]);
 
   // Top users by spending
   const topUsers = useMemo(() =>
-    [...ADMIN_USERS].sort((a, b) => b.spent - a.spent).slice(0, 8).map(u => ({
+    [...users].sort((a, b) => b.spent - a.spent).slice(0, 8).map(u => ({
       name: u.name.split(" ")[0],
       spent: u.spent,
       budget: u.budget?.amount ?? null,
@@ -28,19 +51,19 @@ export default function AdminSpendingPage() {
       color: u.avatarColor,
       initials: u.avatarInitials,
       fullName: u.name,
-      group: ADMIN_GROUPS.find(g => g.id === u.groupId)?.name ?? "—",
+      group: groups.find(g => g.id === u.groupId)?.name ?? "—",
     })), []);
 
   // Top groups by spending
   const topGroups = useMemo(() =>
-    [...ADMIN_GROUPS].sort((a, b) => b.spent - a.spent).map(g => ({
+    [...groups].sort((a, b) => b.spent - a.spent).map(g => ({
       name: g.name,
       spent: g.spent,
       budget: g.budget?.amount ?? null,
       pct: g.budget ? (g.spent / g.budget.amount) * 100 : null,
       alert: g.budget?.alertThreshold ?? 80,
       color: g.color,
-      memberCount: ADMIN_USERS.filter(u => g.memberIds.includes(u.id)).length,
+      memberCount: users.filter(u => g.memberIds.includes(u.id)).length,
     })), []);
 
   // Model usage from audit logs
@@ -57,7 +80,7 @@ export default function AdminSpendingPage() {
   // Alerts
   const alerts = useMemo(() => {
     const list: { type: "user" | "group"; name: string; pct: number; spent: number; limit: number; color: string }[] = [];
-    ADMIN_USERS.forEach(u => {
+    users.forEach(u => {
       if (u.budget) {
         const pct = (u.spent / u.budget.amount) * 100;
         if (pct >= u.budget.alertThreshold) {
@@ -65,7 +88,7 @@ export default function AdminSpendingPage() {
         }
       }
     });
-    ADMIN_GROUPS.forEach(g => {
+    groups.forEach(g => {
       if (g.budget) {
         const pct = (g.spent / g.budget.amount) * 100;
         if (pct >= g.budget.alertThreshold) {
@@ -88,7 +111,7 @@ export default function AdminSpendingPage() {
         <div className="grid grid-cols-4 gap-4">
           {[
             { label: "Общие расходы", value: `$${totalSpent.toFixed(2)}`, sub: "все пользователи", color: "text-slate-900" },
-            { label: "Активных пользователей", value: ADMIN_USERS.filter(u => u.status === "active").length, sub: "из " + ADMIN_USERS.length + " всего", color: "text-green-600" },
+            { label: "Активных пользователей", value: users.filter(u => u.status === "active").length, sub: "из " + users.length + " всего", color: "text-green-600" },
             { label: "Превышений лимита", value: alerts.filter(a => a.pct >= 100).length, sub: "требуют внимания", color: alerts.filter(a => a.pct >= 100).length > 0 ? "text-red-600" : "text-slate-400" },
             { label: "Предупреждений", value: alerts.filter(a => a.pct < 100).length, sub: "близко к лимиту", color: alerts.filter(a => a.pct < 100).length > 0 ? "text-amber-600" : "text-slate-400" },
           ].map(k => (
