@@ -57,7 +57,7 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     {
       id: "nav-users", icon: <Users size={14} />, label: "Пользователи",
       category: "Навигация", shortcut: "⌘U",
-      action: () => { dispatch({ type: "SET_ACTIVE_VIEW", view: "admin" }); onClose(); }
+      action: () => { dispatch({ type: "SET_ACTIVE_VIEW", view: "admin-users" }); onClose(); }
     },
     {
       id: "nav-settings", icon: <Settings size={14} />, label: "Настройки",

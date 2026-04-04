@@ -65,10 +65,14 @@ export default function AdminLogsPage() {
       const user = ADMIN_USERS.find(u => u.id === log.userId);
       const group = ADMIN_GROUPS.find(g => g.id === user?.groupId);
       return [
-        log.timestamp, user?.name ?? log.userId, group?.name ?? "",
-        log.projectName ?? "", log.taskName ?? "", log.model ?? "",
+        log.timestamp,
+        user?.name ?? log.userId,
+        group?.name ?? "",
+        ACTION_LABELS[log.status] ?? log.status,
+        log.projectName ?? "",
+        log.model ?? "",
         log.cost != null ? `$${log.cost.toFixed(4)}` : "",
-        log.mode ?? "",
+        log.taskName ?? "",
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(",");
     });
     const csv = [header, ...rows].join("\n");
@@ -166,7 +170,7 @@ export default function AdminLogsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ACTION_COLORS[log.status] ?? "bg-slate-100 text-slate-600"}`}>
-                        {log.status}
+                        {ACTION_LABELS[log.status] ?? log.status}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-600">

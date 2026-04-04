@@ -240,15 +240,16 @@ export default function Settings() {
             <p className="text-[12px] text-muted-foreground mb-5">Параметры по умолчанию для LLM</p>
             <div className="space-y-3">
               {[
-                { label: "Модель по умолчанию", desc: "Используется при создании новой задачи" },
-                { label: "Температура", desc: "Случайность генерации (0 = детерминировано, 1 = творчески)" },
-                { label: "Максимум токенов", desc: "Лимит на один ответ" },
-                { label: "Бюджет на задачу по умолчанию", desc: "Автостоп при достижении лимита" },
+                { label: "Модель по умолчанию", desc: "Используется при создании новой задачи", value: "claude-sonnet-4.6", placeholder: "Например: claude-sonnet-4.6" },
+                { label: "Температура", desc: "Случайность генерации (0 = детерминировано, 1 = творчески)", value: "0.7", placeholder: "0.0 – 1.0" },
+                { label: "Максимум токенов", desc: "Лимит на один ответ", value: "8192", placeholder: "Например: 8192" },
+                { label: "Бюджет на задачу по умолчанию ($)", desc: "Автостоп при достижении лимита", value: "5.00", placeholder: "Например: 5.00" },
               ].map(item => (
                 <div key={item.label} className="bg-card border border-border rounded-xl p-4">
                   <div className="text-[12px] font-medium text-foreground mb-0.5">{item.label}</div>
                   <div className="text-[11px] text-muted-foreground mb-2">{item.desc}</div>
-                  <input className="bg-input border border-border rounded-lg px-3 py-2 text-[12px] text-foreground outline-none focus:border-primary/50 w-full max-w-xs" />
+                  <input defaultValue={item.value} placeholder={item.placeholder}
+                    className="bg-input border border-border rounded-lg px-3 py-2 text-[12px] text-foreground outline-none focus:border-primary/50 w-full max-w-xs" />
                 </div>
               ))}
               <button onClick={() => toast.success("Настройки сохранены")}

@@ -3,6 +3,7 @@ import { useApp } from "@/contexts/AppContext";
 import { DASHBOARD_DAILY, DASHBOARD_MODELS, DASHBOARD_PROJECTS, formatCostShort } from "@/lib/mockData";
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { TrendingUp, DollarSign, Zap, Clock, Download } from "lucide-react";
+import { toast } from "sonner";
 
 const CHART_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4"];
 
@@ -180,7 +181,11 @@ export default function Dashboard() {
               { name: "Slack",    icon: "💬", status: "disconnected", desc: "Не подключён" },
               { name: "Notion",   icon: "📝", status: "disconnected", desc: "Не подключён" },
             ].map(c => (
-              <div key={c.name} className="flex items-center gap-3 p-3 bg-background border border-border rounded-lg hover:border-primary/30 transition-colors cursor-pointer">
+              <div key={c.name}
+                onClick={() => c.status === "connected"
+                  ? toast(`${c.icon} ${c.name}`, { description: `Подключено: ${c.desc}` })
+                  : toast(`${c.icon} ${c.name}`, { description: "Интеграция недоступна в демо" })}
+                className="flex items-center gap-3 p-3 bg-background border border-border rounded-lg hover:border-primary/30 transition-colors cursor-pointer">
                 <span className="text-[18px]">{c.icon}</span>
                 <div className="flex-1 min-w-0">
                   <div className="text-[12px] font-medium text-foreground">{c.name}</div>

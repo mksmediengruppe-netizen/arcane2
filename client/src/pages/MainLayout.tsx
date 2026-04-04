@@ -82,7 +82,7 @@ export default function MainLayout() {
       d: { view: "dashboard",  label: "Дашборды" },
       a: { view: "analytics",  label: "Аналитика" },
       p: { view: "playbooks",  label: "Плейбуки" },
-      u: { view: "admin",      label: "Пользователи" },
+      u: { view: "admin-users",  label: "Пользователи" },
       r: { view: "schedule",   label: "Расписание" },
       g: { view: "dog-racing", label: "Dog Racing" },
     };
@@ -177,7 +177,7 @@ export default function MainLayout() {
         {state.activeView === "dog-racing" && <DogRacing />}
         {state.activeView === "dashboard" && <Dashboard />}
         {state.activeView === "settings" && <Settings />}
-        {state.activeView === "admin" && <Settings />}
+        {state.activeView === "admin" && <AdminUsersPage />}
         {state.activeView === "playbooks" && <PlaybooksView />}
         {state.activeView === "schedule" && <ScheduleView />}
         {state.activeView === "models" && <ModelsPage />}

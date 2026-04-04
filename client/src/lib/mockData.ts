@@ -25,6 +25,7 @@ export interface Task {
   messages: Message[];
   createdAt: string;
   pinned?: boolean;
+  budget?: number;     // per-task spend limit in USD
   usedAgents?: UsedAgentRecord[]; // agents that participated in this task
   chatMode?: string;              // mode used when task was sent
   collectiveModelIds?: string[];  // models used in collective mode

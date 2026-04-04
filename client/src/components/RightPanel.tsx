@@ -8,6 +8,7 @@ import {
   ChevronRight, X, Terminal, FileText, Activity, DollarSign,
   Layers, Brain, Monitor, Smartphone, Tablet, ExternalLink, BookOpen, Plus, Trash2, Code
 } from "lucide-react";
+import { toast } from "sonner";
 
 type RightTab = "live" | "steps" | "thinking" | "preview" | "terminal" | "artifacts" | "budget" | "memory";
 
@@ -153,7 +154,7 @@ export default function RightPanel() {
   ];
 
   const taskCost = activeTask?.cost || 0;
-  const budgetLimit = 5.0;
+  const budgetLimit = activeTask?.budget ?? 5.0;
   const budgetPct = Math.min(100, (taskCost / budgetLimit) * 100);
 
   const previewWidths: Record<PreviewDevice, string> = {
@@ -384,7 +385,14 @@ export default function RightPanel() {
                 <Smartphone size={13} />
               </button>
               <span className="ml-2 text-[10px] text-muted-foreground">{previewWidths[previewDevice]}</span>
-              <button className="ml-auto p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Открыть в новой вкладке">
+              <button
+                onClick={() => {
+                  const blob = new Blob([MOCK_PREVIEW_HTML], { type: "text/html" });
+                  const url = URL.createObjectURL(blob);
+                  window.open(url, "_blank");
+                  setTimeout(() => URL.revokeObjectURL(url), 5000);
+                }}
+                className="ml-auto p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Открыть в новой вкладке">
                 <ExternalLink size={12} />
               </button>
             </div>
@@ -425,12 +433,15 @@ export default function RightPanel() {
         {tab === "artifacts" && (
           <div className="p-3 space-y-2">
             {MOCK_ARTIFACTS.map(f => (
-              <div key={f.name} className="flex items-center gap-3 px-3 py-2.5 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors cursor-pointer">
+              <div key={f.name}
+                onClick={() => toast(`📄 ${f.name}`, { description: `${f.type} · ${f.size} — скачивание недоступно в демо` })}
+                className="flex items-center gap-3 px-3 py-2.5 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors cursor-pointer">
                 <FileText size={14} className="text-muted-foreground flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="text-[12px] text-foreground truncate">{f.name}</div>
                   <div className="text-[10px] text-muted-foreground">{f.type} · {f.size}</div>
                 </div>
+                <Code size={11} className="text-muted-foreground/40 flex-shrink-0" />
               </div>
             ))}
           </div>
