@@ -213,12 +213,11 @@ export default function LeftPanel() {
     try {
       const res = await api.projects.create({ name });
       const p = res.project;
-      dispatch({ type: 'ADD_PROJECT', name: p.name });
-      // Replace the locally-created project id with the real backend id
       dispatch({ type: 'SET_PROJECTS', projects: [
         ...state.projects,
         { id: p.id, name: p.name, tasks: [], createdAt: new Date(p.created_at * 1000).toISOString().split('T')[0] }
       ]});
+      dispatch({ type: 'SET_ACTIVE_TASK', projectId: p.id, taskId: '' });
     } catch {
       // Fallback: create locally if backend unreachable
       dispatch({ type: "ADD_PROJECT", name });
@@ -296,9 +295,14 @@ export default function LeftPanel() {
     setDragOverProjectId(null);
   };
 
-  const handleAddTask = (projectId: string) => {
+  const handleAddTask = async (projectId: string) => {
     const name = newTaskNames[projectId]?.trim();
     if (!name) return;
+    try {
+      await api.chats.create({ title: name, project_id: projectId });
+    } catch {
+      // fallback: create locally
+    }
     dispatch({ type: "ADD_TASK", projectId, taskName: name });
     setNewTaskNames(prev => ({ ...prev, [projectId]: "" }));
     setShowNewTask(prev => ({ ...prev, [projectId]: false }));

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useApp } from "@/contexts/AppContext";
 import { MODELS, formatCost, Message } from "@/lib/mockData";
 import { api } from "@/lib/api";
+import { mapBackendModel } from "@/lib/modelMapper";
 import { getProjectCost } from "@/lib/store";
 import { useTaskWebSocket, type WsRunStatus } from "@/hooks/useTaskWebSocket";
 import {
@@ -655,7 +656,7 @@ function InputCard({
   selectedModel, setSelectedModel, textareaRef, liveCost,
   agentIds, setAgentIds, collectiveModelIds, setCollectiveModelIds,
   collectiveSynthModel, setCollectiveSynthModel,
-  onAgentModelOverridesChange,
+  onAgentModelOverridesChange, models,
 }: {
   input: string;
   setInput: (v: string) => void;
@@ -681,6 +682,7 @@ function InputCard({
   collectiveSynthModel: string;
   setCollectiveSynthModel: (v: string) => void;
   onAgentModelOverridesChange?: (overrides: Record<string, string>) => void;
+  models: typeof MODELS;
 }) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -710,7 +712,7 @@ function InputCard({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const currentMode = CHAT_MODES.find(m => m.id === chatMode) || CHAT_MODES[0];
-  const currentModel = MODELS.find(m => m.id === selectedModel) || MODELS[0];
+  const currentModel = models.find(m => m.id === selectedModel) || models[0];
 
   const addFiles = useCallback((incoming: FileList | File[], fromPaste = false) => {
     const arr = Array.from(incoming);
@@ -942,7 +944,7 @@ function InputCard({
               ? "Слушаю..."
               : chatMode === "collective"
               ? "Задайте вопрос — все модели ответят одновременно..."
-              : "Send a message to Arcane..."
+              : "Напишите задачу для Arcane..."
           }
           rows={1}
           className="w-full bg-transparent px-3.5 pt-3 pb-1 text-[13px] text-foreground placeholder:text-muted-foreground/50 resize-none outline-none leading-relaxed"
@@ -1065,7 +1067,7 @@ function InputCard({
                   <div className="fixed inset-0 z-40" onClick={() => setShowModelPicker(false)} />
                   <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[260px] max-h-64 overflow-y-auto">
                     {["fast", "standard", "genius", "optimum"].map(tier => {
-                      const tierModels = MODELS.filter(m => m.tier === tier);
+                      const tierModels = models.filter(m => m.tier === tier);
                       if (!tierModels.length) return null;
                       return (
                         <div key={tier}>
@@ -1110,7 +1112,7 @@ function InputCard({
                   const agent = ALL_AGENTS.find(a => a.id === aid);
                   if (!agent) return null;
                   const effectiveModelId = agentModelOverrides[aid] || agent.modelId;
-                  const model = MODELS.find(m => m.id === effectiveModelId);
+                  const model = models.find(m => m.id === effectiveModelId);
                   const isManual = chatMode === "manual";
                   const isManus = aid === "manus";
                   return (
@@ -1214,7 +1216,7 @@ function InputCard({
                             <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider border-b border-border/50 mb-1">
                               Модель для {agent.label}
                             </div>
-                            {(chatMode === ("free" as string) ? MODELS.filter(m => m.isFree) : MODELS).map(m => (
+                            {(chatMode === ("free" as string) ? models.filter(m => m.isFree) : models).map(m => (
                               <button key={m.id}
                                 onClick={() => {
                                   const newOverrides = { ...agentModelOverrides, [aid]: m.id };
@@ -1267,7 +1269,7 @@ function InputCard({
                         <div className="fixed inset-0 z-40" onClick={() => setShowAgentPicker(false)} />
                         <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[200px]">
                           {ALL_AGENTS.filter(a => !agentIds.includes(a.id)).map(agent => {
-                            const model = MODELS.find(m => m.id === agent.modelId);
+                            const model = models.find(m => m.id === agent.modelId);
                             return (
                               <button key={agent.id}
                                 onClick={() => { setAgentIds(prev => [...prev, agent.id]); setShowAgentPicker(false); }}
@@ -1299,7 +1301,7 @@ function InputCard({
               <span className="text-border/30 text-[10px]">|</span>
               <div className="flex items-center gap-1 flex-wrap">
                 {collectiveModelIds.map(mid => {
-                  const m = MODELS.find(x => x.id === mid);
+                  const m = models.find(x => x.id === mid);
                   if (!m) return null;
                   const isReplacing = replaceModelId === mid;
                   return (
@@ -1330,7 +1332,7 @@ function InputCard({
                                 </button>
                               </div>
                               <div className="max-h-52 overflow-y-auto py-1">
-                                {MODELS.filter(opt => opt.id !== mid && !collectiveModelIds.includes(opt.id)).map(opt => (
+                                {models.filter(opt => opt.id !== mid && !collectiveModelIds.includes(opt.id)).map(opt => (
                                   <button key={opt.id}
                                     onClick={() => {
                                       setCollectiveModelIds(prev => prev.map(id => id === mid ? opt.id : id));
@@ -1347,7 +1349,7 @@ function InputCard({
                                     {opt.swe != null && <span className="text-[9px] text-muted-foreground/60">{opt.swe}%</span>}
                                   </button>
                                 ))}
-                                {MODELS.filter(opt => opt.id !== mid && !collectiveModelIds.includes(opt.id)).length === 0 && (
+                                {models.filter(opt => opt.id !== mid && !collectiveModelIds.includes(opt.id)).length === 0 && (
                                   <div className="px-3 py-3 text-[11px] text-muted-foreground/50 text-center">Все модели уже добавлены</div>
                                 )}
                               </div>
@@ -1413,7 +1415,7 @@ function InputCard({
                       <>
                         <div className="fixed inset-0 z-40" onClick={() => setShowCollectivePicker(false)} />
                         <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[220px] max-h-48 overflow-y-auto">
-                          {MODELS.filter(m => !collectiveModelIds.includes(m.id)).map(m => (
+                          {models.filter(m => !collectiveModelIds.includes(m.id)).map(m => (
                             <button key={m.id}
                               onClick={() => { setCollectiveModelIds(prev => [...prev, m.id]); setShowCollectivePicker(false); }}
                               className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors">
@@ -1432,7 +1434,7 @@ function InputCard({
                 {/* Synth model picker */}
                 <div className="relative">
                   {collectiveSynthModel ? (() => {
-                    const sm = MODELS.find(m => m.id === collectiveSynthModel);
+                    const sm = models.find(m => m.id === collectiveSynthModel);
                     return (
                       <HoverCard openDelay={300} closeDelay={100}>
                         <HoverCardTrigger asChild>
@@ -1512,7 +1514,7 @@ function InputCard({
                           <span className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider">Модель-синтезатор</span>
                           <div className="text-[9px] text-muted-foreground mt-0.5">Консолидирует ответы всех агентов</div>
                         </div>
-                        {MODELS.map(m => (
+                        {models.map(m => (
                           <button key={m.id}
                             onClick={() => { setCollectiveSynthModel(m.id); setShowSynthPicker(false); }}
                             className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors ${
@@ -1548,6 +1550,15 @@ export default function ChatPanel() {
   const { state, dispatch } = useApp();
   const [input, setInput] = useState("");
   const [selectedModel, setSelectedModel] = useState("claude-sonnet-4.6");
+  // Fix #8: Load models from API, fallback to mockData
+  const [allModels, setAllModels] = useState<typeof MODELS>(MODELS);
+  useEffect(() => {
+    api.models.list().then(res => {
+      if (res.llm_models && res.llm_models.length > 0) {
+        setAllModels(res.llm_models.map(mapBackendModel) as typeof MODELS);
+      }
+    }).catch(() => { /* keep MODELS fallback */ });
+  }, []);
   const [chatMode, setChatMode] = useState("normal");
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [showModePicker, setShowModePicker] = useState(false);
@@ -1808,7 +1819,7 @@ export default function ChatPanel() {
     dispatch({ type: "EDIT_MESSAGE", projectId: state.activeProjectId, taskId: state.activeTaskId, messageId: id, content: newContent });
   };
 
-  const currentModel = MODELS.find(m => m.id === selectedModel)!;
+  const currentModel = allModels.find(m => m.id === selectedModel) || allModels[0];
   const currentMode = CHAT_MODES.find(m => m.id === chatMode)!;
 
   if (!activeTask) {
@@ -1974,6 +1985,7 @@ export default function ChatPanel() {
         collectiveSynthModel={collectiveSynthModel}
         setCollectiveSynthModel={setCollectiveSynthModel}
         onAgentModelOverridesChange={setAgentModelOverrides}
+        models={allModels}
       />
 
       {/* LEGACY input area — hidden, kept for reference */}
@@ -2013,7 +2025,7 @@ export default function ChatPanel() {
               {showModelPicker && (
                 <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[280px] max-h-72 overflow-y-auto">
                   {["fast", "standard", "genius", "optimum"].map(tier => {
-                    const tierModels = MODELS.filter(m => m.tier === tier);
+                    const tierModels = allModels.filter(m => m.tier === tier);
                     if (!tierModels.length) return null;
                     return (
                       <div key={tier}>
@@ -2049,10 +2061,10 @@ export default function ChatPanel() {
               {collectiveSynthModel && (
                 <>
                   <span className="text-primary/40">→</span>
-                  <span className="text-[10px]" style={{ color: MODELS.find(m => m.id === collectiveSynthModel)?.color }}>
-                    {MODELS.find(m => m.id === collectiveSynthModel)?.icon}
+                  <span className="text-[10px]" style={{ color: allModels.find(m => m.id === collectiveSynthModel)?.color }}>
+                    {allModels.find(m => m.id === collectiveSynthModel)?.icon}
                   </span>
-                  <span className="text-[11px] text-amber-400">{MODELS.find(m => m.id === collectiveSynthModel)?.name}</span>
+                  <span className="text-[11px] text-amber-400">{allModels.find(m => m.id === collectiveSynthModel)?.name}</span>
                 </>
               )}
             </div>

@@ -152,6 +152,10 @@ function vitePluginManusDebugCollector(): Plugin {
 
 const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector()];
 
+// Fix #9: Use env-driven API target instead of hardcoded IP
+const apiTarget = process.env.VITE_API_URL || "http://2.56.240.170:8900";
+const wsTarget = apiTarget.replace(/^http/, "ws");
+
 export default defineConfig({
   plugins,
   resolve: {
@@ -186,12 +190,12 @@ export default defineConfig({
     },
     proxy: {
       "/api": {
-        target: "http://2.56.240.170:8900",
+        target: apiTarget,
         changeOrigin: true,
         secure: false,
       },
       "/ws": {
-        target: "ws://2.56.240.170:8900",
+        target: wsTarget,
         changeOrigin: true,
         secure: false,
         ws: true,

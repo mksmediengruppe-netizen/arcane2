@@ -3,10 +3,10 @@
 import { useState, useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { formatCost } from "@/lib/mockData";
-import LiveCodePreview, { ENRICHED_STEPS, StepPayload } from "./LiveCodePreview";
+import LiveCodePreview, { StepPayload } from "./LiveCodePreview";
 import {
   ChevronRight, X, Terminal, FileText, Activity, DollarSign,
-  Layers, Brain, Monitor, Smartphone, Tablet, ExternalLink, BookOpen, Plus, Trash2, Code
+  Layers, Brain, Monitor, BookOpen, Plus, Trash2
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,85 +14,15 @@ type RightTab = "live" | "steps" | "thinking" | "preview" | "terminal" | "artifa
 
 // Use ENRICHED_STEPS from LiveCodePreview instead of local MOCK_STEPS
 
-const MOCK_LOGS = [
-  "[10:00:01] INFO  Task started: Установка Bitrix на сервер",
-  "[10:00:01] INFO  Model: claude-sonnet-4.6 | Tier: standard",
-  "[10:00:02] INFO  Tool: Browser → GET https://ubuntu.com/download",
-  "[10:00:03] INFO  Browser: Page loaded (2.1s, 142KB)",
-  "[10:00:04] INFO  LLM: Extracted installation instructions",
-  "[10:00:05] INFO  Tool: SSH → connect 192.168.1.100:22",
-  "[10:00:05] INFO  SSH: Connected as root",
-  "[10:00:06] INFO  SSH: $ apt update",
-  "[10:00:51] INFO  SSH: 47 packages upgraded",
-  "[10:01:02] INFO  SSH: $ apt install -y nginx php8.1-fpm mysql-server",
-  "[10:02:34] INFO  SSH: Installation complete",
-  "[10:02:35] INFO  Tool: FileSystem → write /etc/nginx/sites-available/bitrix.conf",
-  "[10:02:36] INFO  SSH: $ systemctl restart nginx php8.1-fpm",
-  "[10:02:38] INFO  LLM: Generating final report (tokens_in=1240, tokens_out=3850)",
-  "[10:04:12] INFO  Task completed. Cost: $1.2400 | Duration: 4m 12s",
-];
 
-const MOCK_ARTIFACTS = [
-  { name: "bitrix.conf",        type: "nginx",  size: "1.2 KB" },
-  { name: "install_report.md",  type: "doc",    size: "3.8 KB" },
-  { name: "mysql_setup.sql",    type: "sql",    size: "0.4 KB" },
-];
 
-const MOCK_THINKING = `Пользователь просит установить Bitrix на Ubuntu 22.04. Мне нужно:
 
-1. Определить актуальную версию Ubuntu 22.04 LTS и убедиться в совместимости с Bitrix.
-2. Проверить системные требования: минимум 2GB RAM, 20GB disk, PHP 8.1+, MySQL 8.0+.
-3. Составить последовательность шагов:
-   - Обновить систему (apt update && apt upgrade)
-   - Установить nginx как веб-сервер (предпочтительнее Apache для производительности)
-   - Установить PHP 8.1-fpm с необходимыми расширениями (mbstring, curl, gd, zip, xml)
-   - Установить MySQL Server 8.0
-   - Создать базу данных и пользователя для Bitrix
-   - Скачать и распаковать дистрибутив Bitrix
-   - Настроить nginx virtual host
-   - Настроить PHP-FPM pool
-   - Запустить мастер установки Bitrix
 
-Потенциальные проблемы:
-- SELinux/AppArmor может блокировать nginx
-- Нужно проверить права на директории
-- Bitrix требует конкретные настройки php.ini (memory_limit, upload_max_filesize)
 
-Оптимальный подход: использовать официальный скрипт bitrixsetup.php для автоматической установки, это надёжнее ручной установки.`;
 
-const MOCK_PREVIEW_HTML = `<!DOCTYPE html>
-<html>
-<head>
-  <title>Bitrix Installation Report</title>
-  <style>
-    body { font-family: system-ui; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #333; }
-    h1 { color: #1a56db; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px; }
-    .status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600; background: #d1fae5; color: #065f46; }
-    .step { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
-    .step-num { width: 24px; height: 24px; background: #1a56db; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
-    .cost { color: #6b7280; font-size: 12px; font-family: monospace; }
-  </style>
-</head>
-<body>
-  <h1>🚀 Bitrix Installation Report</h1>
-  <p><span class="status">✓ Установка завершена</span></p>
-  <p>Сервер: <strong>192.168.1.100</strong> | Время: <strong>4m 12s</strong> | Стоимость: <strong>$1.24</strong></p>
-  <h2>Выполненные шаги</h2>
-  <div class="step"><div class="step-num">1</div><div><strong>apt update && apt upgrade</strong><br><span class="cost">45.2s · $0.0089</span></div></div>
-  <div class="step"><div class="step-num">2</div><div><strong>Установка nginx, PHP 8.1-fpm, MySQL</strong><br><span class="cost">32.1s · $0.0067</span></div></div>
-  <div class="step"><div class="step-num">3</div><div><strong>Настройка nginx virtual host</strong><br><span class="cost">0.1s · $0.0001</span></div></div>
-  <div class="step"><div class="step-num">4</div><div><strong>Перезапуск сервисов</strong><br><span class="cost">2.3s · $0.0004</span></div></div>
-  <p>✅ Bitrix доступен по адресу: <a href="#">http://192.168.1.100/</a></p>
-</body>
-</html>`;
 
-const MOCK_MEMORY = [
-  { id: "m1", type: "fact",    content: "Сервер клиента: Ubuntu 22.04, IP: 192.168.1.100, root доступ", project: "Bitrix сервер", created: "2 апр" },
-  { id: "m2", type: "pref",    content: "Предпочитает nginx над Apache, PHP 8.1-fpm", project: "Bitrix сервер", created: "2 апр" },
-  { id: "m3", type: "fact",    content: "Telegram бот использует python-telegram-bot v20, async архитектуру", project: "AI Telegram Bot", created: "3 апр" },
-  { id: "m4", type: "context", content: "Проект использует RAG pipeline с LangChain и ChromaDB", project: "AI Telegram Bot", created: "3 апр" },
-  { id: "m5", type: "pref",    content: "Предпочитает DeepSeek для задач с кодом — лучшее соотношение цена/качество", project: "Глобальный", created: "1 апр" },
-];
+
+
 
 const MEMORY_TYPE_COLORS: Record<string, string> = {
   fact:    "text-blue-400 bg-blue-400/10 border-blue-400/20",
@@ -111,14 +41,13 @@ const TOOL_COLORS: Record<string, string> = {
   LLM:        "text-purple-400",
 };
 
-type PreviewDevice = "desktop" | "tablet" | "mobile";
+
 
 export default function RightPanel() {
   const { state, dispatch } = useApp();
   const [tab, setTab] = useState<RightTab>("steps");
-  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("desktop");
-  const [thinkingExpanded, setThinkingExpanded] = useState(true);
-  const [memories, setMemories] = useState(MOCK_MEMORY);
+
+  const [memories, setMemories] = useState<Array<{id: string; type: string; content: string; project: string; created: string}>>([]);
   const [newMemory, setNewMemory] = useState("");
   const [selectedStep, setSelectedStep] = useState<StepPayload | null>(null);
 
@@ -175,11 +104,7 @@ export default function RightPanel() {
     setEditingBudget(false);
   }
 
-  const previewWidths: Record<PreviewDevice, string> = {
-    desktop: "100%",
-    tablet: "768px",
-    mobile: "375px",
-  };
+
 
   return (
     <div className="flex flex-col h-full bg-sidebar border-l border-border overflow-hidden flex-shrink-0"
@@ -304,130 +229,63 @@ export default function RightPanel() {
             <div className="px-2 py-1.5 mb-1">
               <span className="text-[10px] text-muted-foreground/50">Кликните на шаг чтобы увидеть код</span>
             </div>
-            {ENRICHED_STEPS.map((step, i) => (
-              <button
-                key={step.id}
-                onClick={() => handleStepClick(step)}
-                className={`w-full flex gap-2.5 px-2 py-2 rounded-md transition-all text-left group ${
-                  selectedStep?.id === step.id
-                    ? "bg-primary/10 border border-primary/20"
-                    : "hover:bg-accent/30 border border-transparent"
-                }`}>
-                <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                  <span className="mono text-[10px] text-muted-foreground/50 w-4 text-right">{i + 1}</span>
-                  {i < ENRICHED_STEPS.length - 1 && <div className="w-px h-3 bg-border" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className={`text-[10px] font-semibold ${TOOL_COLORS[step.tool] || "text-muted-foreground"}`}>
-                      {step.tool}
-                    </span>
-                    <span className="mono text-[10px] text-muted-foreground/50">{step.time}</span>
-                    <span className="mono text-[10px] text-muted-foreground/50">{formatCost(step.cost)}</span>
-                    <span className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Code size={10} className="text-primary" />
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-foreground/70 truncate">{step.action}</div>
-                  {step.file && (
-                    <div className="text-[10px] text-muted-foreground/40 truncate mt-0.5 font-mono">{step.file}</div>
-                  )}
-                </div>
-              </button>
-            ))}
+            {activeTask?.status === "running" ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <div className="w-6 h-6 border-2 border-primary/40 border-t-primary rounded-full animate-spin mb-3" />
+                <div className="text-[12px] text-muted-foreground">Задача выполняется...</div>
+                <div className="text-[11px] text-muted-foreground/50 mt-1">Шаги появятся по мере выполнения</div>
+              </div>
+            ) : activeTask ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Layers size={22} className="text-muted-foreground/30 mb-2" />
+                <div className="text-[12px] text-muted-foreground">Детальные шаги недоступны</div>
+                <div className="text-[11px] text-muted-foreground/50 mt-1 max-w-[180px]">Шаги выполнения отображаются в реальном времени во время работы агента</div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Layers size={22} className="text-muted-foreground/30 mb-2" />
+                <div className="text-[12px] text-muted-foreground">Нет активной задачи</div>
+              </div>
+            )}
           </div>
         )}
 
         {/* THINKING */}
         {tab === "thinking" && (
           <div className="p-3">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Brain size={13} className="text-purple-400" />
-                <span className="text-[11px] font-medium text-foreground">Процесс мышления</span>
-              </div>
-              <button
-                onClick={() => setThinkingExpanded(v => !v)}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {thinkingExpanded ? "Свернуть" : "Развернуть"}
-              </button>
+            <div className="flex items-center gap-2 mb-3">
+              <Brain size={13} className="text-purple-400" />
+              <span className="text-[11px] font-medium text-foreground">Процесс мышления</span>
             </div>
-            {thinkingExpanded ? (
-              <div className="bg-purple-400/5 border border-purple-400/20 rounded-lg p-3">
-                <pre className="text-[11px] text-foreground/70 font-mono whitespace-pre-wrap leading-relaxed">
-                  {MOCK_THINKING}
-                </pre>
-              </div>
-            ) : (
-              <div
-                className="bg-purple-400/5 border border-purple-400/20 rounded-lg p-3 cursor-pointer hover:bg-purple-400/10 transition-colors"
-                onClick={() => setThinkingExpanded(true)}
-              >
-                <div className="text-[11px] text-muted-foreground line-clamp-2 font-mono">
-                  {MOCK_THINKING.slice(0, 120)}...
+            {activeTask?.messages && activeTask.messages.some(m => m.thinking) ? (
+              activeTask.messages.filter(m => m.thinking).map(m => (
+                <div key={m.id} className="mb-3">
+                  <div className="bg-purple-400/5 border border-purple-400/20 rounded-lg p-3">
+                    <pre className="text-[11px] text-foreground/70 font-mono whitespace-pre-wrap leading-relaxed">{m.thinking}</pre>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                    <span>Модель: {m.model || "—"}</span>
+                  </div>
                 </div>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Brain size={22} className="text-muted-foreground/30 mb-2" />
+                <div className="text-[12px] text-muted-foreground">Нет данных о мышлении</div>
+                <div className="text-[11px] text-muted-foreground/50 mt-1">Доступно для моделей с расширенным мышлением (o1, R1)</div>
               </div>
             )}
-            <div className="mt-3 flex items-center gap-2 text-[10px] text-muted-foreground">
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-              <span>Модель: DeepSeek-R1 · Токены мышления: ~1,240</span>
-            </div>
           </div>
         )}
 
         {/* PREVIEW */}
         {tab === "preview" && (
           <div className="flex flex-col h-full">
-            {/* Device switcher */}
-            <div className="flex items-center gap-1 px-3 py-2 border-b border-border flex-shrink-0">
-              <button
-                onClick={() => setPreviewDevice("desktop")}
-                className={`p-1.5 rounded transition-colors ${previewDevice === "desktop" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                title="Desktop"
-              >
-                <Monitor size={13} />
-              </button>
-              <button
-                onClick={() => setPreviewDevice("tablet")}
-                className={`p-1.5 rounded transition-colors ${previewDevice === "tablet" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                title="Tablet"
-              >
-                <Tablet size={13} />
-              </button>
-              <button
-                onClick={() => setPreviewDevice("mobile")}
-                className={`p-1.5 rounded transition-colors ${previewDevice === "mobile" ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                title="Mobile"
-              >
-                <Smartphone size={13} />
-              </button>
-              <span className="ml-2 text-[10px] text-muted-foreground">{previewWidths[previewDevice]}</span>
-              <button
-                onClick={() => {
-                  const blob = new Blob([MOCK_PREVIEW_HTML], { type: "text/html" });
-                  const url = URL.createObjectURL(blob);
-                  window.open(url, "_blank");
-                  setTimeout(() => URL.revokeObjectURL(url), 5000);
-                }}
-                className="ml-auto p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors" title="Открыть в новой вкладке">
-                <ExternalLink size={12} />
-              </button>
-            </div>
-            {/* Preview iframe */}
-            <div className="flex-1 overflow-auto bg-muted/30 p-2">
-              <div
-                className="bg-white rounded border border-border overflow-hidden mx-auto transition-all"
-                style={{ width: previewWidths[previewDevice], minHeight: "300px" }}
-              >
-                <iframe
-                  srcDoc={MOCK_PREVIEW_HTML}
-                  className="w-full border-0"
-                  style={{ height: "500px" }}
-                  title="Preview"
-                  sandbox="allow-scripts"
-                />
-              </div>
+            <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
+              <Monitor size={24} className="text-muted-foreground/30 mb-2" />
+              <div className="text-[12px] text-muted-foreground">Превью недоступно</div>
+              <div className="text-[11px] text-muted-foreground/50 mt-1 max-w-[180px]">Превью генерируется когда агент создаёт HTML-страницы или веб-интерфейсы</div>
             </div>
           </div>
         )}
@@ -435,33 +293,39 @@ export default function RightPanel() {
         {/* TERMINAL */}
         {tab === "terminal" && (
           <div className="p-3 font-mono text-[11px] leading-relaxed">
-            {MOCK_LOGS.map((line, i) => {
-              const isError = line.includes("ERROR");
-              const isWarn  = line.includes("WARN");
-              return (
-                <div key={i} className={`${isError ? "text-red-400" : isWarn ? "text-yellow-400" : "text-emerald-400/80"} hover:bg-accent/20 px-1 rounded`}>
-                  {line}
-                </div>
-              );
-            })}
+            {activeTask?.messages && activeTask.messages.length > 0 ? (
+              <>
+                {activeTask.messages.map((m, i) => (
+                  <div key={m.id || i} className="mb-1">
+                    <span className="text-muted-foreground/50">[{m.timestamp || "—"}] </span>
+                    <span className={m.role === "user" ? "text-blue-400" : "text-emerald-400/80"}>
+                      {m.role === "user" ? "USER" : "AGENT"}
+                    </span>
+                    <span className="text-muted-foreground/60"> {m.content.slice(0, 200)}{m.content.length > 200 ? "..." : ""}</span>
+                  </div>
+                ))}
+                {activeTask.status === "error" && (
+                  <div className="mt-2 text-red-400">[ERROR] Задача завершилась с ошибкой</div>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Terminal size={22} className="text-muted-foreground/30 mb-2" />
+                <div className="text-[12px] text-muted-foreground">Нет логов</div>
+                <div className="text-[11px] text-muted-foreground/50 mt-1">Логи появятся после запуска задачи</div>
+              </div>
+            )}
           </div>
         )}
 
         {/* ARTIFACTS */}
         {tab === "artifacts" && (
-          <div className="p-3 space-y-2">
-            {MOCK_ARTIFACTS.map(f => (
-              <div key={f.name}
-                onClick={() => toast(`📄 ${f.name}`, { description: `${f.type} · ${f.size} — скачивание недоступно в демо` })}
-                className="flex items-center gap-3 px-3 py-2.5 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors cursor-pointer">
-                <FileText size={14} className="text-muted-foreground flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[12px] text-foreground truncate">{f.name}</div>
-                  <div className="text-[10px] text-muted-foreground">{f.type} · {f.size}</div>
-                </div>
-                <Code size={11} className="text-muted-foreground/40 flex-shrink-0" />
-              </div>
-            ))}
+          <div className="p-3">
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <FileText size={22} className="text-muted-foreground/30 mb-2" />
+              <div className="text-[12px] text-muted-foreground">Нет файлов</div>
+              <div className="text-[11px] text-muted-foreground/50 mt-1 max-w-[180px]">Файлы появятся когда агент создаст или скачает документы в ходе задачи</div>
+            </div>
           </div>
         )}
 
@@ -606,15 +470,7 @@ export default function RightPanel() {
               </div>
             )}
 
-            <div className="border-t border-border pt-3">
-              <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Разбивка по шагам</div>
-              {ENRICHED_STEPS.map(step => (
-                <div key={step.id} className="flex items-center justify-between py-1">
-                  <span className={`text-[11px] ${TOOL_COLORS[step.tool] || "text-muted-foreground"}`}>{step.tool}</span>
-                  <span className="mono text-[11px] text-muted-foreground">{formatCost(step.cost)}</span>
-                </div>
-              ))}
-            </div>
+
 
             <div className="border-t border-border pt-3">
               <div className="flex items-center justify-between">

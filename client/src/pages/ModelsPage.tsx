@@ -262,7 +262,7 @@ export default function ModelsPage() {
             <div>
               <h1 className="font-bold text-[18px] text-foreground">Реестр моделей</h1>
               <p className="text-[12px] text-muted-foreground">
-                {MODELS.length} LLM · {IMAGE_MODELS.length} генерация изображений
+                {llmModels.length} LLM · {IMAGE_MODELS.length} генерация изображений
               </p>
             </div>
           </div>
@@ -276,7 +276,7 @@ export default function ModelsPage() {
               }`}>
               <Brain size={13} />
               Языковые модели
-              <span className="ml-1 text-[10px] font-mono px-1 py-0.5 rounded bg-primary/10 text-primary">{MODELS.length}</span>
+              <span className="ml-1 text-[10px] font-mono px-1 py-0.5 rounded bg-primary/10 text-primary">{llmModels.length}</span>
             </button>
             <button
               onClick={() => { setTab("image"); setFilter("all"); }}
