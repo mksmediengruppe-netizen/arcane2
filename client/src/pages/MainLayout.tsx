@@ -14,6 +14,7 @@ import CommandPalette from "@/components/CommandPalette";
 import ShortcutsModal from "@/components/ShortcutsModal";
 import ModelsPage from "@/pages/ModelsPage";
 import ConsolidationPage from "@/pages/ConsolidationPage";
+import AnalyticsPage from "@/pages/AnalyticsPage";
 
 function ResizeHandle({ onDrag, onDoubleClick }: { onDrag: (dx: number) => void; onDoubleClick?: () => void }) {
   const isDragging = useRef(false);
@@ -67,12 +68,13 @@ export default function MainLayout() {
     dispatch({ type: "SET_RIGHT_WIDTH", width: newWidth });
   }, [state.rightPanelWidth, dispatch]);
 
-  const isFullView = ["dog-racing", "dashboard", "settings", "admin", "playbooks", "schedule", "models", "consolidation"].includes(state.activeView);
+  const isFullView = ["dog-racing", "dashboard", "settings", "admin", "playbooks", "schedule", "models", "consolidation", "analytics"].includes(state.activeView);
 
   // Global keyboard shortcuts
   useEffect(() => {
     const SHORTCUTS: Record<string, { view: string; label: string }> = {
       d: { view: "dashboard",  label: "Дашборды" },
+      a: { view: "analytics",  label: "Аналитика" },
       p: { view: "playbooks",  label: "Плейбуки" },
       u: { view: "admin",      label: "Пользователи" },
       r: { view: "schedule",   label: "Расписание" },
@@ -174,6 +176,7 @@ export default function MainLayout() {
         {state.activeView === "schedule" && <ScheduleView />}
         {state.activeView === "models" && <ModelsPage />}
         {state.activeView === "consolidation" && <ConsolidationPage />}
+        {state.activeView === "analytics" && <AnalyticsPage />}
       </div>
 
       {/* Right resize handle */}
