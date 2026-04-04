@@ -190,6 +190,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      "/ws": {
+        target: "ws://2.56.240.170:8900",
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
     },
   },
 });

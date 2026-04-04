@@ -272,25 +272,30 @@ function UserModal({ user, onClose, onSave }: UserModalProps) {
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
 
-  useEffect(() => {
+  const loadUsers = () => {
     api.admin.users.list().then((data: any) => {
-      const mapped: AdminUser[] = (data.users || data || []).map((u: any) => ({
+      const AVATAR_COLORS = ["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#06B6D4", "#84CC16", "#EC4899"];
+      const mapped: AdminUser[] = (data.users || data || []).map((u: any, idx: number) => ({
         id: u.id || u.user_id || `u${Date.now()}`,
         name: u.name || u.username || u.email?.split("@")[0] || "—",
         email: u.email || "",
         role: (u.role as UserRole) || "user",
-        status: (u.status as UserStatus) || "active",
+        status: (u.status === false || u.is_active === false) ? "blocked" : ((u.status as UserStatus) || "active"),
         spent: u.spent_usd || u.spent || 0,
-        budget: u.budget ? { amount: u.budget, period: (u.budget_period || "month") as BudgetPeriod, alert: u.budget_alert || 80, action: (u.budget_action || "warn") as BudgetAction } : null,
-        group: u.group_id || u.group || undefined,
-        permissions: u.permissions || DEFAULT_PERMISSIONS,
-        task_visibility: (u.task_visibility as TaskVisibility) || "own",
-        created_at: u.created_at || new Date().toISOString(),
-        last_active: u.last_active || u.last_login || undefined,
+        budget: u.budget ? { amount: u.budget, period: (u.budget_period || "month") as BudgetPeriod, alertThreshold: u.budget_alert || 80, actionOnExceed: (u.budget_action || "warn") as BudgetAction } : null,
+        groupId: u.group_id || u.groupId || null,
+        avatarInitials: u.avatarInitials || (u.name || u.email || "?").slice(0, 2).toUpperCase(),
+        avatarColor: u.avatarColor || AVATAR_COLORS[idx % AVATAR_COLORS.length],
+        permissions: u.permissions || { ...DEFAULT_PERMISSIONS.user },
+        taskVisibility: (u.task_visibility || u.taskVisibility || "own") as TaskVisibility,
+        createdAt: u.created_at || u.createdAt || new Date().toISOString(),
+        lastActiveAt: u.last_active || u.lastActiveAt || u.last_login || new Date().toISOString(),
       }));
       setUsers(mapped.length > 0 ? mapped : ADMIN_USERS);
     }).catch(() => setUsers(ADMIN_USERS));
-  }, []);
+  };
+
+  useEffect(() => { loadUsers(); }, []);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
   const [statusFilter, setStatusFilter] = useState<UserStatus | "all">("all");
@@ -305,16 +310,45 @@ export default function AdminUsersPage() {
   }), [users, search, roleFilter, statusFilter]);
 
   function toggleBlock(id: string) {
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, status: u.status === "blocked" ? "active" : "blocked" } : u));
+    api.admin.users.toggle(id).then(() => {
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, status: u.status === "blocked" ? "active" : "blocked" } : u));
+    }).catch(() => {
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, status: u.status === "blocked" ? "active" : "blocked" } : u));
+    });
   }
 
   function handleSave(u: AdminUser) {
-    setUsers(prev => {
-      const idx = prev.findIndex(x => x.id === u.id);
-      if (idx >= 0) return prev.map(x => x.id === u.id ? u : x);
-      return [...prev, u];
-    });
+    const isNew = !users.find(x => x.id === u.id);
+    const payload: any = {
+      email: u.email,
+      name: u.name,
+      role: u.role,
+    };
+    if (isNew) {
+      payload.password = "changeme123";
+      api.admin.users.create(payload).then((res: any) => {
+        const created = res.user || u;
+        setUsers(prev => [...prev, { ...u, id: created.id || u.id }]);
+      }).catch(() => {
+        setUsers(prev => [...prev, u]);
+      });
+    } else {
+      api.admin.users.update(u.id, payload).then(() => {
+        setUsers(prev => prev.map(x => x.id === u.id ? u : x));
+      }).catch(() => {
+        setUsers(prev => prev.map(x => x.id === u.id ? u : x));
+      });
+    }
     setEditUser(undefined);
+  }
+
+  function handleDelete(id: string) {
+    if (!confirm("Удалить пользователя?")) return;
+    api.admin.users.delete(id).then(() => {
+      setUsers(prev => prev.filter(u => u.id !== id));
+    }).catch(() => {
+      setUsers(prev => prev.filter(u => u.id !== id));
+    });
   }
 
   const totalSpent = users.reduce((s, u) => s + u.spent, 0);
@@ -445,10 +479,14 @@ export default function AdminUsersPage() {
                           <button onClick={() => setEditUser(u)}
                             className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded transition-colors">Изменить</button>
                           {u.role !== "super_admin" && (
-                            <button onClick={() => toggleBlock(u.id)}
-                              className={`px-2 py-1 text-xs rounded transition-colors ${u.status === "blocked" ? "text-green-600 hover:bg-green-50" : "text-red-500 hover:bg-red-50"}`}>
-                              {u.status === "blocked" ? "Разблокировать" : "Заблокировать"}
-                            </button>
+                            <>
+                              <button onClick={() => toggleBlock(u.id)}
+                                className={`px-2 py-1 text-xs rounded transition-colors ${u.status === "blocked" ? "text-green-600 hover:bg-green-50" : "text-amber-500 hover:bg-amber-50"}`}>
+                                {u.status === "blocked" ? "Разблокировать" : "Заблокировать"}
+                              </button>
+                              <button onClick={() => handleDelete(u.id)}
+                                className="px-2 py-1 text-xs text-red-500 hover:bg-red-50 rounded transition-colors">Удалить</button>
+                            </>
                           )}
                         </div>
                       </td>

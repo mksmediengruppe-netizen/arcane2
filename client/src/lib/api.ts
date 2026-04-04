@@ -344,8 +344,9 @@ export const api = {
 
   // ── WebSocket URL ──────────────────────────────────────────────────────
   wsUrl: (projectId: string) => {
-    const base = API_BASE || window.location.origin;
-    return base.replace(/^http/, 'ws') + `/ws/${projectId}`;
+    // Use relative WebSocket URL so Vite proxy handles it (ws:// upgrade)
+    const origin = window.location.origin;
+    return origin.replace(/^http/, 'ws') + `/ws/${projectId}`;
   },
 
   // ═════════════════════════════════════════════════════════════════════════

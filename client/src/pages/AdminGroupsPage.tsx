@@ -184,16 +184,42 @@ export default function AdminGroupsPage() {
   const [editGroup, setEditGroup] = useState<AdminGroup | null | undefined>(undefined);
 
   function handleSave(g: AdminGroup) {
-    setGroups(prev => {
-      const idx = prev.findIndex(x => x.id === g.id);
-      if (idx >= 0) return prev.map(x => x.id === g.id ? g : x);
-      return [...prev, g];
-    });
+    const isNew = !groups.find(x => x.id === g.id);
+    const payload: any = {
+      name: g.name,
+      description: g.description,
+      color: g.color,
+      managerId: g.managerId || null,
+    };
+    if (isNew) {
+      api.admin.groups.create(payload).then((res: any) => {
+        const created = res.group || g;
+        const newGroup = { ...g, id: created.id || g.id };
+        setGroups(prev => [...prev, newGroup]);
+        // sync members
+        if (g.memberIds.length > 0) {
+          g.memberIds.forEach(uid => api.admin.groups.addMember(newGroup.id, uid).catch(() => {}));
+        }
+      }).catch(() => {
+        setGroups(prev => [...prev, g]);
+      });
+    } else {
+      api.admin.groups.update(g.id, payload).then(() => {
+        setGroups(prev => prev.map(x => x.id === g.id ? g : x));
+      }).catch(() => {
+        setGroups(prev => prev.map(x => x.id === g.id ? g : x));
+      });
+    }
     setEditGroup(undefined);
   }
 
   function deleteGroup(id: string) {
-    setGroups(prev => prev.filter(g => g.id !== id));
+    if (!confirm("Удалить группу?")) return;
+    api.admin.groups.delete(id).then(() => {
+      setGroups(prev => prev.filter(g => g.id !== id));
+    }).catch(() => {
+      setGroups(prev => prev.filter(g => g.id !== id));
+    });
   }
 
   return (

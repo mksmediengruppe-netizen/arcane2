@@ -6,6 +6,7 @@ import { useApp } from "@/contexts/AppContext";
 import { MODELS, formatCost, Message } from "@/lib/mockData";
 import { api } from "@/lib/api";
 import { getProjectCost } from "@/lib/store";
+import { useTaskWebSocket, type WsRunStatus } from "@/hooks/useTaskWebSocket";
 import {
   Send, ChevronDown, Brain, Zap, ChevronRight, Copy, RotateCcw,
   ThumbsUp, ThumbsDown, Square, Globe, Terminal, FileText,
@@ -1562,6 +1563,31 @@ export default function ChatPanel() {
   const [collectiveSynthModel, setCollectiveSynthModel] = useState<string>(COLLECTIVE_SYNTH);
   const [agentModelOverrides, setAgentModelOverrides] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const activeRunRef = useRef<{ run_id: string; projectId: string; taskId: string } | null>(null);
+
+  // WebSocket for real-time run status updates
+  useTaskWebSocket({
+    projectId: state.activeProjectId,
+    enabled: true,
+    onMessage: (msg: WsRunStatus) => {
+      if (msg.type !== "run_status") return;
+      const active = activeRunRef.current;
+      if (!active || msg.run_id !== active.run_id) return;
+
+      // Update streaming output if available
+      if (msg.data?.output) {
+        setStreamingText(String(msg.data.output));
+      }
+      if (msg.data?.actual_cost != null) {
+        setLiveCost(Number(msg.data.actual_cost));
+      }
+
+      // Terminal states: done, failed, cancelled
+      if (msg.status === "done" || msg.status === "failed" || msg.status === "cancelled") {
+        stopRef.current = true; // signal polling loop to stop
+      }
+    },
+  });
 
   // Reset agents when mode changes
   useEffect(() => {
@@ -1688,10 +1714,16 @@ export default function ChatPanel() {
           });
           responseContent = res.run.output || "";
           finalCost = res.run.actual_cost || 0;
-          // Poll for completion if still running
+          // Poll for completion if still running (WebSocket also updates in parallel)
           if (res.run.status !== "done" && res.run.status !== "failed") {
             let run = res.run;
             let attempts = 0;
+            // Register active run for WebSocket updates
+            activeRunRef.current = {
+              run_id: run.run_id,
+              projectId: state.activeProjectId!,
+              taskId: state.activeTaskId!,
+            };
             while (run.status !== "done" && run.status !== "failed" && run.status !== "cancelled" && attempts < 120) {
               if (stopRef.current) {
                 await api.tasks.cancel(run.run_id).catch(() => {});
@@ -1706,6 +1738,7 @@ export default function ChatPanel() {
                 setStreamingText(run.output);
               }
             }
+            activeRunRef.current = null;
             responseContent = run.output || "";
             finalCost = run.actual_cost || 0;
           }
