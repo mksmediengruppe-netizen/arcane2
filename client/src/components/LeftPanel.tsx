@@ -9,7 +9,7 @@ import {
   Calendar, Moon, Sun, LogOut, Zap, ChevronLeft,
   ChevronUp, HelpCircle, Globe, Download, Search, X,
   MoreHorizontal, Pencil, Trash2, DollarSign, Copy, Pin, Bell, CheckCheck,
-  Cpu, Brain, BarChart2
+  Cpu, Brain, BarChart2, Shield, FileText, UsersRound
 } from "lucide-react";
 import {
   AlertDialog,
@@ -60,8 +60,17 @@ const navItems: { icon: React.ReactNode; label: string; view: View; shortcut?: s
   { icon: <BookOpen size={14} />,        label: "Плейбуки",      view: "playbooks",  shortcut: "⌘P" },
   { icon: <Calendar size={14} />,        label: "Расписание",    view: "schedule",   shortcut: "⌘R" },
   { icon: <LayoutDashboard size={14} />, label: "Дашборды",      view: "dashboard",  shortcut: "⌘D" },
-  { icon: <Users size={14} />,           label: "Пользователи",  view: "admin",      shortcut: "⌘U" },
   { icon: <Settings size={14} />,        label: "Настройки",     view: "settings",   shortcut: "⇧⌘," },
+];
+
+// Admin sub-navigation (visible only to superadmin/admin)
+const adminNavItems: { icon: React.ReactNode; label: string; view: View }[] = [
+  { icon: <UsersRound size={14} />,   label: "Пользователи",    view: "admin-users" },
+  { icon: <Shield size={14} />,       label: "Группы",           view: "admin-groups" },
+  { icon: <FileText size={14} />,     label: "Права доступа",   view: "admin-permissions" },
+  { icon: <DollarSign size={14} />,   label: "Бюджеты",       view: "admin-budgets" },
+  { icon: <BarChart2 size={14} />,    label: "Расходы",          view: "admin-spending" },
+  { icon: <FileText size={14} />,     label: "Аудит-лог",       view: "admin-logs" },
 ];
 
 const MOCK_NOTIFICATIONS = [
@@ -707,6 +716,22 @@ export default function LeftPanel() {
               <span className="flex-1 text-[13px]">Dog Racing</span>
               <kbd className="text-[10px] text-muted-foreground/50 font-mono">⌘G</kbd>
             </button>
+            {/* Admin section */}
+            <div className="px-4 pt-2 pb-1">
+              <div className="text-[10px] font-semibold text-muted-foreground/50 uppercase tracking-widest">Администрация</div>
+            </div>
+            {adminNavItems.map(item => (
+              <button key={item.view}
+                onClick={() => { dispatch({ type: "SET_ACTIVE_VIEW", view: item.view }); setNavExpanded(false); }}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left ${
+                  state.activeView === item.view ? "text-primary bg-primary/8" : "text-foreground/70 hover:text-foreground"
+                }`}>
+                <span className={`flex-shrink-0 ${
+                  state.activeView === item.view ? "text-primary" : "text-muted-foreground"
+                }`}>{item.icon}</span>
+                <span className="flex-1 text-[13px]">{item.label}</span>
+              </button>
+            ))}
           </div>
           </>
         )}

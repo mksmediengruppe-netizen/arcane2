@@ -15,6 +15,12 @@ import ShortcutsModal from "@/components/ShortcutsModal";
 import ModelsPage from "@/pages/ModelsPage";
 import ConsolidationPage from "@/pages/ConsolidationPage";
 import AnalyticsPage from "@/pages/AnalyticsPage";
+import AdminUsersPage from "@/pages/AdminUsersPage";
+import AdminGroupsPage from "@/pages/AdminGroupsPage";
+import AdminPermissionsPage from "@/pages/AdminPermissionsPage";
+import AdminBudgetsPage from "@/pages/AdminBudgetsPage";
+import AdminLogsPage from "@/pages/AdminLogsPage";
+import AdminSpendingPage from "@/pages/AdminSpendingPage";
 
 function ResizeHandle({ onDrag, onDoubleClick }: { onDrag: (dx: number) => void; onDoubleClick?: () => void }) {
   const isDragging = useRef(false);
@@ -68,7 +74,7 @@ export default function MainLayout() {
     dispatch({ type: "SET_RIGHT_WIDTH", width: newWidth });
   }, [state.rightPanelWidth, dispatch]);
 
-  const isFullView = ["dog-racing", "dashboard", "settings", "admin", "playbooks", "schedule", "models", "consolidation", "analytics"].includes(state.activeView);
+  const isFullView = ["dog-racing", "dashboard", "settings", "admin", "playbooks", "schedule", "models", "consolidation", "analytics", "admin-users", "admin-groups", "admin-permissions", "admin-budgets", "admin-logs", "admin-spending"].includes(state.activeView);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -177,6 +183,12 @@ export default function MainLayout() {
         {state.activeView === "models" && <ModelsPage />}
         {state.activeView === "consolidation" && <ConsolidationPage />}
         {state.activeView === "analytics" && <AnalyticsPage />}
+        {state.activeView === "admin-users" && <AdminUsersPage />}
+        {state.activeView === "admin-groups" && <AdminGroupsPage />}
+        {state.activeView === "admin-permissions" && <AdminPermissionsPage />}
+        {state.activeView === "admin-budgets" && <AdminBudgetsPage />}
+        {state.activeView === "admin-logs" && <AdminLogsPage />}
+        {state.activeView === "admin-spending" && <AdminSpendingPage />}
       </div>
 
       {/* Right resize handle */}

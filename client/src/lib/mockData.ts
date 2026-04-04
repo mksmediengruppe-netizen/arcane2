@@ -293,3 +293,318 @@ export const MOCK_USERS = [
   { id: "u4", name: "Анна Новикова",   email: "anna@company.ru",  role: "user",        status: "active",  budget: 20,    spent: 3.1  },
   { id: "u5", name: "Сергей Волков",   email: "sergey@company.ru",role: "user",        status: "blocked", budget: 10,    spent: 9.9  },
 ];
+
+// ── Admin / Access Control Types ─────────────────────────────────────────────
+
+export type UserRole = "super_admin" | "admin" | "group_manager" | "user";
+export type UserStatus = "active" | "blocked" | "pending";
+export type BudgetPeriod = "day" | "week" | "month" | "total";
+export type BudgetAction = "warn" | "block" | "notify_admin";
+export type TaskVisibility = "own" | "group" | "all";
+
+export interface Permission {
+  // Task visibility
+  taskVisibility: TaskVisibility;
+  // Section access
+  canViewAnalytics: boolean;
+  canViewModels: boolean;
+  canViewLogs: boolean;
+  canViewBudgets: boolean;
+  canManageBudgets: boolean;
+  canViewConsolidation: boolean;
+  canViewDogRacing: boolean;
+  canViewAdminPanel: boolean;
+  // Model restrictions
+  allowedModelIds: string[] | null;    // null = all allowed
+  blockedModelIds: string[];
+  allowedModes: string[] | null;       // null = all allowed
+}
+
+export interface BudgetLimit {
+  amount: number;
+  period: BudgetPeriod;
+  alertThreshold: number;   // 0-100 percent
+  actionOnExceed: BudgetAction;
+}
+
+export interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  status: UserStatus;
+  groupId: string | null;
+  avatarInitials: string;
+  avatarColor: string;
+  createdAt: string;
+  lastActiveAt: string;
+  budget: BudgetLimit | null;
+  spent: number;
+  permissions: Permission;
+}
+
+export interface AdminGroup {
+  id: string;
+  name: string;
+  description: string;
+  managerId: string | null;
+  memberIds: string[];
+  budget: BudgetLimit | null;
+  spent: number;
+  color: string;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: UserRole;
+  projectId: string;
+  projectName: string;
+  taskId: string;
+  taskName: string;
+  model: string;
+  mode: string;
+  agents: string[];
+  cost: number;
+  tokensIn: number;
+  tokensOut: number;
+  status: TaskStatus;
+  timestamp: string; // ISO
+}
+
+// ── Default permissions per role ─────────────────────────────────────────────
+export const DEFAULT_PERMISSIONS: Record<UserRole, Permission> = {
+  super_admin: {
+    taskVisibility: "all",
+    canViewAnalytics: true,
+    canViewModels: true,
+    canViewLogs: true,
+    canViewBudgets: true,
+    canManageBudgets: true,
+    canViewConsolidation: true,
+    canViewDogRacing: true,
+    canViewAdminPanel: true,
+    allowedModelIds: null,
+    blockedModelIds: [],
+    allowedModes: null,
+  },
+  admin: {
+    taskVisibility: "all",
+    canViewAnalytics: true,
+    canViewModels: true,
+    canViewLogs: true,
+    canViewBudgets: true,
+    canManageBudgets: true,
+    canViewConsolidation: true,
+    canViewDogRacing: true,
+    canViewAdminPanel: true,
+    allowedModelIds: null,
+    blockedModelIds: [],
+    allowedModes: null,
+  },
+  group_manager: {
+    taskVisibility: "group",
+    canViewAnalytics: true,
+    canViewModels: true,
+    canViewLogs: false,
+    canViewBudgets: true,
+    canManageBudgets: false,
+    canViewConsolidation: true,
+    canViewDogRacing: true,
+    canViewAdminPanel: false,
+    allowedModelIds: null,
+    blockedModelIds: [],
+    allowedModes: null,
+  },
+  user: {
+    taskVisibility: "own",
+    canViewAnalytics: false,
+    canViewModels: true,
+    canViewLogs: false,
+    canViewBudgets: false,
+    canManageBudgets: false,
+    canViewConsolidation: false,
+    canViewDogRacing: false,
+    canViewAdminPanel: false,
+    allowedModelIds: null,
+    blockedModelIds: [],
+    allowedModes: null,
+  },
+};
+
+// ── Mock Admin Users ──────────────────────────────────────────────────────────
+export const ADMIN_USERS: AdminUser[] = [
+  {
+    id: "u1", name: "Алексей Петров", email: "alex@company.ru",
+    role: "super_admin", status: "active", groupId: null,
+    avatarInitials: "АП", avatarColor: "#3B82F6",
+    createdAt: "2026-01-01", lastActiveAt: "2026-04-04T10:00:00Z",
+    budget: null, spent: 21.4,
+    permissions: { ...DEFAULT_PERMISSIONS.super_admin },
+  },
+  {
+    id: "u2", name: "Мария Сидорова", email: "maria@company.ru",
+    role: "admin", status: "active", groupId: "g1",
+    avatarInitials: "МС", avatarColor: "#8B5CF6",
+    createdAt: "2026-01-15", lastActiveAt: "2026-04-04T09:30:00Z",
+    budget: { amount: 100, period: "month", alertThreshold: 80, actionOnExceed: "warn" },
+    spent: 12.8,
+    permissions: { ...DEFAULT_PERMISSIONS.admin },
+  },
+  {
+    id: "u3", name: "Дмитрий Козлов", email: "dmitry@company.ru",
+    role: "group_manager", status: "active", groupId: "g1",
+    avatarInitials: "ДК", avatarColor: "#10B981",
+    createdAt: "2026-02-01", lastActiveAt: "2026-04-03T18:00:00Z",
+    budget: { amount: 50, period: "month", alertThreshold: 75, actionOnExceed: "warn" },
+    spent: 8.3,
+    permissions: { ...DEFAULT_PERMISSIONS.group_manager },
+  },
+  {
+    id: "u4", name: "Анна Новикова", email: "anna@company.ru",
+    role: "user", status: "active", groupId: "g1",
+    avatarInitials: "АН", avatarColor: "#F59E0B",
+    createdAt: "2026-02-10", lastActiveAt: "2026-04-04T08:15:00Z",
+    budget: { amount: 20, period: "month", alertThreshold: 80, actionOnExceed: "block" },
+    spent: 3.1,
+    permissions: {
+      ...DEFAULT_PERMISSIONS.user,
+      taskVisibility: "group",
+      canViewAnalytics: true,
+      allowedModelIds: ["claude-sonnet-4.6", "claude-haiku-4.5", "gpt-5.4-mini", "deepseek-v3.2"],
+      allowedModes: ["auto", "optimum", "light", "normal"],
+    },
+  },
+  {
+    id: "u5", name: "Сергей Волков", email: "sergey@company.ru",
+    role: "user", status: "blocked", groupId: "g2",
+    avatarInitials: "СВ", avatarColor: "#EF4444",
+    createdAt: "2026-02-15", lastActiveAt: "2026-04-01T12:00:00Z",
+    budget: { amount: 10, period: "month", alertThreshold: 90, actionOnExceed: "block" },
+    spent: 9.9,
+    permissions: { ...DEFAULT_PERMISSIONS.user },
+  },
+  {
+    id: "u6", name: "Ирина Лебедева", email: "irina@company.ru",
+    role: "user", status: "active", groupId: "g2",
+    avatarInitials: "ИЛ", avatarColor: "#06B6D4",
+    createdAt: "2026-03-01", lastActiveAt: "2026-04-04T07:45:00Z",
+    budget: { amount: 30, period: "month", alertThreshold: 80, actionOnExceed: "notify_admin" },
+    spent: 5.6,
+    permissions: {
+      ...DEFAULT_PERMISSIONS.user,
+      canViewAnalytics: true,
+      allowedModes: ["auto", "optimum", "light", "normal", "free"],
+    },
+  },
+  {
+    id: "u7", name: "Павел Морозов", email: "pavel@company.ru",
+    role: "user", status: "active", groupId: "g2",
+    avatarInitials: "ПМ", avatarColor: "#84CC16",
+    createdAt: "2026-03-10", lastActiveAt: "2026-04-03T16:30:00Z",
+    budget: { amount: 15, period: "month", alertThreshold: 70, actionOnExceed: "warn" },
+    spent: 2.1,
+    permissions: { ...DEFAULT_PERMISSIONS.user },
+  },
+];
+
+// ── Mock Admin Groups ─────────────────────────────────────────────────────────
+export const ADMIN_GROUPS: AdminGroup[] = [
+  {
+    id: "g1", name: "Разработка", description: "Backend и Frontend разработчики",
+    managerId: "u3", memberIds: ["u2", "u3", "u4"],
+    budget: { amount: 200, period: "month", alertThreshold: 80, actionOnExceed: "warn" },
+    spent: 24.2, color: "#3B82F6",
+  },
+  {
+    id: "g2", name: "Маркетинг", description: "Контент, SEO, реклама",
+    managerId: null, memberIds: ["u5", "u6", "u7"],
+    budget: { amount: 100, period: "month", alertThreshold: 75, actionOnExceed: "notify_admin" },
+    spent: 17.6, color: "#8B5CF6",
+  },
+];
+
+// ── Mock Audit Logs ───────────────────────────────────────────────────────────
+export const AUDIT_LOGS: AuditLogEntry[] = [
+  {
+    id: "log1", userId: "u1", userName: "Алексей Петров", userRole: "super_admin",
+    projectId: "p1", projectName: "Bitrix Landing", taskId: "t1", taskName: "Установка Bitrix на сервер",
+    model: "claude-sonnet-4.6", mode: "optimum", agents: ["planner", "coder"],
+    cost: 1.24, tokensIn: 1240, tokensOut: 3850, status: "done",
+    timestamp: "2026-04-01T10:04:00Z",
+  },
+  {
+    id: "log2", userId: "u1", userName: "Алексей Петров", userRole: "super_admin",
+    projectId: "p1", projectName: "Bitrix Landing", taskId: "t2", taskName: "Настройка SSL сертификата",
+    model: "claude-haiku-4.5", mode: "light", agents: ["coder"],
+    cost: 0.38, tokensIn: 420, tokensOut: 1100, status: "done",
+    timestamp: "2026-04-01T11:02:00Z",
+  },
+  {
+    id: "log3", userId: "u3", userName: "Дмитрий Козлов", userRole: "group_manager",
+    projectId: "p1", projectName: "Bitrix Landing", taskId: "t3", taskName: "Оптимизация скорости загрузки",
+    model: "gpt-5.4-mini", mode: "auto", agents: ["analyst", "coder"],
+    cost: 0.12, tokensIn: 380, tokensOut: 290, status: "error",
+    timestamp: "2026-04-02T14:01:00Z",
+  },
+  {
+    id: "log4", userId: "u4", userName: "Анна Новикова", userRole: "user",
+    projectId: "p1", projectName: "Bitrix Landing", taskId: "t4", taskName: "Настройка резервного копирования",
+    model: "deepseek-v3.2", mode: "optimum", agents: ["coder", "reviewer"],
+    cost: 0.54, tokensIn: 890, tokensOut: 2100, status: "warning",
+    timestamp: "2026-04-02T15:03:00Z",
+  },
+  {
+    id: "log5", userId: "u1", userName: "Алексей Петров", userRole: "super_admin",
+    projectId: "p2", projectName: "AI Чат-бот для клиентов", taskId: "t5", taskName: "Архитектура RAG-системы",
+    model: "claude-opus-4.6", mode: "top", agents: ["orchestrator", "planner", "coder", "reviewer", "researcher"],
+    cost: 2.87, tokensIn: 2100, tokensOut: 5800, status: "done",
+    timestamp: "2026-04-02T09:08:00Z",
+  },
+  {
+    id: "log6", userId: "u2", userName: "Мария Сидорова", userRole: "admin",
+    projectId: "p2", projectName: "AI Чат-бот для клиентов", taskId: "t6", taskName: "Интеграция с Telegram",
+    model: "gpt-5.4", mode: "auto", agents: ["orchestrator", "coder", "researcher"],
+    cost: 0.91, tokensIn: 1560, tokensOut: 2400, status: "running",
+    timestamp: "2026-04-03T10:32:00Z",
+  },
+  {
+    id: "log7", userId: "u3", userName: "Дмитрий Козлов", userRole: "group_manager",
+    projectId: "p3", projectName: "Аналитика продаж", taskId: "t7", taskName: "Дашборд в Metabase",
+    model: "gemini-3.1-pro", mode: "optimum", agents: ["analyst", "coder"],
+    cost: 0.67, tokensIn: 780, tokensOut: 2200, status: "done",
+    timestamp: "2026-04-01T13:05:00Z",
+  },
+  {
+    id: "log8", userId: "u6", userName: "Ирина Лебедева", userRole: "user",
+    projectId: "p3", projectName: "Аналитика продаж", taskId: "t8", taskName: "Прогноз продаж на Q2",
+    model: "deepseek-v3.2", mode: "light", agents: ["analyst"],
+    cost: 0.34, tokensIn: 560, tokensOut: 1400, status: "done",
+    timestamp: "2026-04-03T14:20:00Z",
+  },
+  {
+    id: "log9", userId: "u7", userName: "Павел Морозов", userRole: "user",
+    projectId: "p2", projectName: "AI Чат-бот для клиентов", taskId: "t9", taskName: "Тестирование чат-бота",
+    model: "claude-haiku-4.5", mode: "normal", agents: ["tester"],
+    cost: 0.18, tokensIn: 340, tokensOut: 890, status: "done",
+    timestamp: "2026-04-03T16:45:00Z",
+  },
+  {
+    id: "log10", userId: "u5", userName: "Сергей Волков", userRole: "user",
+    projectId: "p1", projectName: "Bitrix Landing", taskId: "t10", taskName: "SEO оптимизация",
+    model: "gpt-5.4-mini", mode: "free", agents: ["writer"],
+    cost: 0.09, tokensIn: 290, tokensOut: 720, status: "done",
+    timestamp: "2026-04-01T09:15:00Z",
+  },
+];
+
+// ── Org-level budget ──────────────────────────────────────────────────────────
+export const ORG_BUDGET: BudgetLimit & { name: string; spent: number } = {
+  name: "Arcane AI — Организация",
+  amount: 500,
+  period: "month",
+  alertThreshold: 80,
+  actionOnExceed: "notify_admin",
+  spent: 62.8,
+};

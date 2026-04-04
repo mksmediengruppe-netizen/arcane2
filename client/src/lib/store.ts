@@ -1,7 +1,7 @@
 // === ARCANE 2 — App State Store (no external deps, React-only) ===
 import { MOCK_PROJECTS, MOCK_RACES, Project, Race, Task, Message } from "./mockData";
 
-export type View = "chat" | "dog-racing" | "dashboard" | "settings" | "admin" | "playbooks" | "schedule" | "models" | "consolidation" | "analytics";
+export type View = "chat" | "dog-racing" | "dashboard" | "settings" | "admin" | "playbooks" | "schedule" | "models" | "consolidation" | "analytics" | "admin-users" | "admin-groups" | "admin-permissions" | "admin-budgets" | "admin-logs" | "admin-spending";
 
 export interface AppState {
   projects: Project[];
