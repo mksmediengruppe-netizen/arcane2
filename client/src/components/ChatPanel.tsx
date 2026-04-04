@@ -1,12 +1,12 @@
 // Design: Refined Dark SaaS — Chat Panel
 // Features: EmptyChat, Capability Badges, Stop button, Follow-up suggestions, Edit message, Reactions
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { MODELS, formatCost, Message } from "@/lib/mockData";
 import {
   Send, ChevronDown, Brain, Zap, ChevronRight, Copy, RotateCcw,
   ThumbsUp, ThumbsDown, Square, Globe, Terminal, FileText,
-  Image, Search, Pencil, Check, X
+  Image, Search, Pencil, Check, X, Plus, Mic, MicOff, Paperclip
 } from "lucide-react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
@@ -282,6 +282,315 @@ function MessageRow({
   );
 }
 
+// ── Uploaded file chip type ────────────────────────────────────────────────────────────────
+interface UploadedFile { id: string; name: string; size: number; type: string; }
+
+// ── InputCard ──────────────────────────────────────────────────────────────────────────
+function InputCard({
+  input, setInput, isGenerating, handleSend, handleStop,
+  capabilities, setCapabilities, chatMode, setChatMode,
+  showModePicker, setShowModePicker, showModelPicker, setShowModelPicker,
+  selectedModel, setSelectedModel, textareaRef, liveCost,
+}: {
+  input: string;
+  setInput: (v: string) => void;
+  isGenerating: boolean;
+  handleSend: (override?: string) => void;
+  handleStop: () => void;
+  capabilities: Record<string, boolean>;
+  setCapabilities: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  chatMode: string;
+  setChatMode: (v: string) => void;
+  showModePicker: boolean;
+  setShowModePicker: React.Dispatch<React.SetStateAction<boolean>>;
+  showModelPicker: boolean;
+  setShowModelPicker: React.Dispatch<React.SetStateAction<boolean>>;
+  selectedModel: string;
+  setSelectedModel: (v: string) => void;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  liveCost: number;
+}) {
+  const [files, setFiles] = useState<UploadedFile[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceSupported] = useState(() => typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window));
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+  const currentMode = CHAT_MODES.find(m => m.id === chatMode) || CHAT_MODES[0];
+  const currentModel = MODELS.find(m => m.id === selectedModel) || MODELS[0];
+
+  const addFiles = useCallback((incoming: FileList | File[]) => {
+    const arr = Array.from(incoming);
+    const chips: UploadedFile[] = arr.map(f => ({
+      id: Math.random().toString(36).slice(2),
+      name: f.name, size: f.size, type: f.type,
+    }));
+    setFiles(prev => [...prev, ...chips]);
+    toast.success(`Загружено ${arr.length} файл${arr.length > 1 ? "а" : ""}`);
+  }, []);
+
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = (e: React.DragEvent) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false); };
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setIsDragging(false);
+    if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  };
+
+  const toggleVoice = () => {
+    if (!voiceSupported) { toast.error("Голосовой ввод не поддерживается в этом браузере"); return; }
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any;
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.lang = "ru-RU";
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onstart = () => setIsListening(true);
+    rec.onend = () => setIsListening(false);
+    rec.onerror = () => { setIsListening(false); toast.error("Ошибка голосового ввода"); };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rec.onresult = (e: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const transcript = Array.from(e.results as any[])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((r: any) => r[0].transcript).join("");
+      setInput(transcript);
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+        textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 160) + "px";
+      }
+    };
+    recognitionRef.current = rec;
+    rec.start();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  };
+
+  return (
+    <div
+      className={`flex-shrink-0 px-3 pb-3 pt-2 transition-colors ${
+        isDragging ? "bg-primary/5" : ""
+      }`}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag-over overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center rounded-xl border-2 border-dashed border-primary/60 bg-primary/5 pointer-events-none">
+          <div className="flex flex-col items-center gap-2">
+            <Paperclip size={28} className="text-primary" />
+            <span className="text-sm font-medium text-primary">Перетащите файлы сюда</span>
+          </div>
+        </div>
+      )}
+
+      {/* Unified card */}
+      <div className={`relative rounded-xl border transition-all duration-150 ${
+        isDragging
+          ? "border-primary/60 bg-accent/30"
+          : "border-border bg-input/60 hover:border-border/80 focus-within:border-primary/40"
+      }`}>
+
+        {/* Uploaded file chips */}
+        {files.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
+            {files.map(f => (
+              <div key={f.id} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent border border-border text-[11px] text-foreground max-w-[180px]">
+                <Paperclip size={10} className="text-muted-foreground flex-shrink-0" />
+                <span className="truncate">{f.name}</span>
+                <span className="text-muted-foreground/60 flex-shrink-0">{formatFileSize(f.size)}</span>
+                <button onClick={() => setFiles(prev => prev.filter(x => x.id !== f.id))}
+                  className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors ml-0.5">
+                  <X size={10} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Textarea */}
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={
+            isListening
+              ? "Слушаю..."
+              : chatMode === "collective"
+              ? "Задайте вопрос — все модели ответят одновременно..."
+              : "Send a message to Arcane..."
+          }
+          rows={1}
+          className="w-full bg-transparent px-3.5 pt-3 pb-1 text-[13px] text-foreground placeholder:text-muted-foreground/50 resize-none outline-none leading-relaxed"
+          style={{ minHeight: "44px", maxHeight: "200px", overflowY: "auto" }}
+          onInput={e => {
+            const el = e.currentTarget;
+            el.style.height = "auto";
+            el.style.height = Math.min(el.scrollHeight, 200) + "px";
+          }}
+        />
+
+        {/* Bottom toolbar */}
+        <div className="flex items-center gap-1 px-2 pb-2 pt-1">
+
+          {/* + file upload button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            title="Загрузить файл"
+            className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+            <Plus size={15} />
+          </button>
+          <input ref={fileInputRef} type="file" multiple className="hidden"
+            onChange={e => { if (e.target.files?.length) { addFiles(e.target.files); e.target.value = ""; } }} />
+
+          {/* Capability pills */}
+          <div className="flex items-center gap-1 flex-1 overflow-x-auto scrollbar-none">
+            {CAPABILITIES.map(cap => (
+              <button
+                key={cap.id}
+                onClick={() => setCapabilities(prev => ({ ...prev, [cap.id]: !prev[cap.id] }))}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] border whitespace-nowrap transition-all duration-150 ${
+                  capabilities[cap.id]
+                    ? `${cap.color} bg-accent/60 border-border`
+                    : "text-muted-foreground/40 border-transparent hover:border-border hover:text-muted-foreground"
+                }`}>
+                {cap.icon}
+                <span>{cap.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Right side: voice + send/stop */}
+          <div className="flex items-center gap-1.5 flex-shrink-0 ml-1">
+            {/* Voice mic */}
+            <button
+              onClick={toggleVoice}
+              title={isListening ? "Остановить запись" : "Голосовой ввод"}
+              className={`w-7 h-7 rounded-md flex items-center justify-center transition-all duration-150 ${
+                isListening
+                  ? "text-red-400 bg-red-400/15 animate-pulse"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              }`}>
+              {isListening ? <MicOff size={14} /> : <Mic size={14} />}
+            </button>
+
+            {/* Send / Stop */}
+            {isGenerating ? (
+              <button onClick={handleStop}
+                className="w-7 h-7 rounded-md bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 flex items-center justify-center transition-colors">
+                <Square size={12} className="text-red-400 fill-red-400" />
+              </button>
+            ) : (
+              <button
+                onClick={() => handleSend()}
+                disabled={!input.trim() && files.length === 0}
+                className="w-7 h-7 rounded-md bg-primary hover:bg-primary/80 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors">
+                <Send size={12} className="text-primary-foreground" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Mode + Model row — very bottom inside card */}
+        <div className="flex items-center gap-1.5 px-3 pb-2 border-t border-border/30 pt-1.5">
+          {/* Mode picker */}
+          <div className="relative">
+            <button onClick={() => { setShowModePicker(v => !v); setShowModelPicker(false); }}
+              className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+              <span>{currentMode.icon}</span>
+              <span>{currentMode.label}</span>
+              <ChevronDown size={9} className="opacity-50" />
+            </button>
+            {showModePicker && (
+              <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[160px]">
+                {CHAT_MODES.map(mode => (
+                  <button key={mode.id} onClick={() => { setChatMode(mode.id); setShowModePicker(false); }}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent transition-colors ${
+                      chatMode === mode.id ? "text-primary" : "text-foreground"
+                    }`}>
+                    <span>{mode.icon}</span><span>{mode.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <span className="text-border/50 text-[10px]">·</span>
+
+          {/* Model picker */}
+          {chatMode !== "collective" && (
+            <div className="relative">
+              <button onClick={() => { setShowModelPicker(v => !v); setShowModePicker(false); }}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
+                <span style={{ color: currentModel.color }}>{currentModel.icon}</span>
+                <span>{currentModel.name}</span>
+                <span className="mono text-[9px] opacity-50">${currentModel.costOut}/M</span>
+                <ChevronDown size={9} className="opacity-50" />
+              </button>
+              {showModelPicker && (
+                <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[260px] max-h-64 overflow-y-auto">
+                  {["fast", "standard", "genius", "optimum"].map(tier => {
+                    const tierModels = MODELS.filter(m => m.tier === tier);
+                    if (!tierModels.length) return null;
+                    return (
+                      <div key={tier}>
+                        <div className="px-3 py-1 text-[9px] font-semibold text-muted-foreground uppercase tracking-wider border-b border-border/50">
+                          {TIER_LABELS[tier]}
+                        </div>
+                        {tierModels.map(m => (
+                          <button key={m.id} onClick={() => { setSelectedModel(m.id); setShowModelPicker(false); }}
+                            className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors ${
+                              selectedModel === m.id ? "bg-accent/50" : ""
+                            }`}>
+                            <span className="text-[12px]" style={{ color: m.color }}>{m.icon}</span>
+                            <div className="flex-1 text-left">
+                              <div className="text-[11px] text-foreground">{m.name}</div>
+                            </div>
+                            <div className="mono text-[9px] text-muted-foreground">${m.costIn}/${m.costOut}</div>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {chatMode === "collective" && (
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-primary">
+              <Brain size={10} />
+              <span>{COLLECTIVE_MODELS.length} моделей + синтез</span>
+            </div>
+          )}
+
+          <div className="flex-1" />
+          {isGenerating && (
+            <span className="mono text-[10px] text-blue-400 animate-pulse">Генерация... {formatCost(liveCost)}</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ChatPanel() {
   const { state, dispatch } = useApp();
   const [input, setInput] = useState("");
@@ -532,8 +841,29 @@ export default function ChatPanel() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input area */}
-      <div className="border-t border-border px-4 py-3 flex-shrink-0">
+      {/* ── Manus-style unified input card ── */}
+      <InputCard
+        input={input}
+        setInput={setInput}
+        isGenerating={isGenerating}
+        handleSend={handleSend}
+        handleStop={handleStop}
+        capabilities={capabilities}
+        setCapabilities={setCapabilities}
+        chatMode={chatMode}
+        setChatMode={setChatMode}
+        showModePicker={showModePicker}
+        setShowModePicker={setShowModePicker}
+        showModelPicker={showModelPicker}
+        setShowModelPicker={setShowModelPicker}
+        selectedModel={selectedModel}
+        setSelectedModel={setSelectedModel}
+        textareaRef={textareaRef}
+        liveCost={liveCost}
+      />
+
+      {/* LEGACY input area — hidden, kept for reference */}
+      <div className="hidden border-t border-border px-4 py-3 flex-shrink-0">
         {/* Mode & Model selectors */}
         <div className="flex items-center gap-2 mb-2 flex-wrap">
           {/* Mode picker */}
