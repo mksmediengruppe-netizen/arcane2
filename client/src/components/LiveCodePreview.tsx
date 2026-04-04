@@ -3,9 +3,10 @@
 // When a step is selected (via Steps tab), shows that step's specific code/output.
 // On hover (mini mode): expands as a portal overlay on the right side of the screen.
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X, FileCode, Terminal, FileText, Globe, Brain, ChevronLeft } from "lucide-react";
+import { X, FileCode, Terminal, FileText, Globe, Brain, ChevronLeft, Copy, Check } from "lucide-react";
+import { toast } from "sonner";
 
 // ── Step payload type ─────────────────────────────────────────────────────────
 export interface StepPayload {
@@ -296,6 +297,22 @@ function HighlightedLine({ line, lang }: { line: string; lang: string }) {
   );
 }
 
+// ── Copy hook ────────────────────────────────────────────────────────────────
+function useCopyCode(lines: string[]) {
+  const [copied, setCopied] = useState(false);
+  const copy = useCallback(() => {
+    const text = lines.join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      toast.success("Код скопирован", { duration: 1800 });
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      toast.error("Не удалось скопировать");
+    });
+  }, [lines]);
+  return { copied, copy };
+}
+
 // ── Shared code view ──────────────────────────────────────────────────────────
 function CodeView({
   step, visibleLines, lineIdx, isStreaming, scrollRef, compact = false,
@@ -311,6 +328,7 @@ function CodeView({
   const langColor = LANG_COLORS[lang] || LANG_COLORS.default;
   const file = step.file || "output";
   const visibleCount = compact ? 7 : 999;
+  const { copied, copy } = useCopyCode(step.lines);
 
   return (
     <div className="flex flex-col h-full" style={{ background: "oklch(0.115 0.008 265)" }}>
@@ -331,6 +349,18 @@ function CodeView({
         )}
         {!isStreaming && (
           <span className="text-[9px] text-zinc-600 font-mono">{step.tool}</span>
+        )}
+        {!compact && (
+          <button
+            onClick={copy}
+            title="Копировать код"
+            className={`ml-1 p-1 rounded transition-all duration-150 ${
+              copied
+                ? "text-emerald-400 bg-emerald-400/10"
+                : "text-zinc-600 hover:text-zinc-300 hover:bg-white/8"
+            }`}>
+            {copied ? <Check size={11} /> : <Copy size={11} />}
+          </button>
         )}
       </div>
 
@@ -381,7 +411,25 @@ function CodeView({
   );
 }
 
-// ── Auto-streaming hook ───────────────────────────────────────────────────────
+// ── Portal overlay copy button (standalone to avoid hook-in-portal issues) ────────────────────────
+function PortalCopyButton({ lines }: { lines: string[] }) {
+  const { copied, copy } = useCopyCode(lines);
+  return (
+    <button
+      onClick={copy}
+      title="Копировать код"
+      className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all duration-150 ${
+        copied
+          ? "text-emerald-400 bg-emerald-400/10"
+          : "text-zinc-500 hover:text-zinc-300 hover:bg-white/8"
+      }`}>
+      {copied ? <Check size={11} /> : <Copy size={11} />}
+      <span className="font-mono">{copied ? "Скопировано" : "Copy"}</span>
+    </button>
+  );
+}
+
+// ── Auto-streaming hook ──────────────────────────────────────────────────────────
 function useStreamLines(step: StepPayload, active: boolean) {
   const [visibleLines, setVisibleLines] = useState<string[]>([]);
   const [lineIdx, setLineIdx] = useState(0);
@@ -465,16 +513,32 @@ export default function LiveCodePreview({
   if (!activeStep) return null;
 
   // ── Inline expanded (right panel tab) ──
+  const { copied: expandedCopied, copy: expandedCopy } = useCopyCode(activeStep.lines);
+
   if (expanded) {
     return (
       <div className="flex flex-col h-full">
-        {onBack && (
-          <button onClick={onBack}
-            className="flex items-center gap-1 px-3 py-1.5 border-b border-white/5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex-shrink-0"
-            style={{ background: "oklch(0.115 0.008 265)" }}>
-            <ChevronLeft size={11} /> Назад к Live
+        {/* Back bar with copy button */}
+        <div className="flex items-center border-b border-white/5 flex-shrink-0"
+          style={{ background: "oklch(0.115 0.008 265)" }}>
+          {onBack && (
+            <button onClick={onBack}
+              className="flex items-center gap-1 px-3 py-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex-1">
+              <ChevronLeft size={11} /> Назад к Live
+            </button>
+          )}
+          <button
+            onClick={expandedCopy}
+            title="Копировать код"
+            className={`flex items-center gap-1 px-3 py-1.5 text-[10px] transition-all duration-150 ${
+              expandedCopied
+                ? "text-emerald-400"
+                : "text-zinc-500 hover:text-zinc-300"
+            }`}>
+            {expandedCopied ? <Check size={11} /> : <Copy size={11} />}
+            <span>{expandedCopied ? "Скопировано" : "Копировать"}</span>
           </button>
-        )}
+        </div>
         <div className="flex-1 overflow-hidden">
           <CodeView step={activeStep} visibleLines={visibleLines} lineIdx={lineIdx}
             isStreaming={isStreaming} scrollRef={scrollRef} />
@@ -539,6 +603,8 @@ export default function LiveCodePreview({
               <div className="flex items-center gap-1.5">
                 {isStreaming && <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /><span className="text-[9px] text-emerald-400 font-mono tracking-wide">LIVE</span></>}
               </div>
+              {/* Copy button in portal overlay */}
+              <PortalCopyButton lines={activeStep.lines} />
               {onClose && (
                 <button onClick={onClose} className="p-0.5 rounded hover:bg-white/10 text-zinc-500 hover:text-zinc-300 ml-1">
                   <X size={11} />
