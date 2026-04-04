@@ -1285,6 +1285,15 @@ export default function ChatPanel() {
     };
     dispatch({ type: "ADD_MESSAGE", projectId: state.activeProjectId, taskId: state.activeTaskId, message: userMsg });
     dispatch({ type: "UPDATE_TASK_STATUS", projectId: state.activeProjectId, taskId: state.activeTaskId, status: "running" });
+    // Save agents used for this task
+    dispatch({
+      type: "UPDATE_TASK_AGENTS",
+      projectId: state.activeProjectId,
+      taskId: state.activeTaskId,
+      agentIds: chatMode === "auto" ? autoAssignAgents(text) : agentIds,
+      chatMode,
+      collectiveModelIds: chatMode === "collective" ? collectiveModelIds : undefined,
+    });
     setInput("");
     setIsGenerating(true);
     setStreamingText("");

@@ -37,7 +37,8 @@ export type AppAction =
   | { type: "SET_PROJECT_BUDGET"; projectId: string; budget: number | undefined }
   | { type: "EDIT_MESSAGE"; projectId: string; taskId: string; messageId: string; content: string }
   | { type: "DUPLICATE_TASK"; projectId: string; taskId: string }
-  | { type: "PIN_TASK"; projectId: string; taskId: string };
+  | { type: "PIN_TASK"; projectId: string; taskId: string }
+  | { type: "UPDATE_TASK_AGENTS"; projectId: string; taskId: string; agentIds: string[]; chatMode: string; collectiveModelIds?: string[] };
 
 // Read saved theme from localStorage, default to "dark"
 const savedTheme = (typeof window !== "undefined" && (localStorage.getItem("arcane-theme") as "dark" | "light")) || "dark";
@@ -205,6 +206,41 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       document.documentElement.classList.toggle("dark", theme === "dark");
       localStorage.setItem("arcane-theme", theme);
       return { ...state, theme };
+    }
+    case "UPDATE_TASK_AGENTS": {
+      const now = new Date().toISOString();
+      const projects = state.projects.map(p => {
+        if (p.id !== action.projectId) return p;
+        return {
+          ...p,
+          tasks: p.tasks.map(t => {
+            if (t.id !== action.taskId) return t;
+            // Import ALL_AGENTS mapping inline to get modelId per agentId
+            const AGENT_MODEL_MAP: Record<string, string> = {
+              orchestrator: "claude-opus-4.6",
+              planner: "claude-sonnet-4.6",
+              coder: "deepseek-v3.2",
+              reviewer: "gpt-5.4",
+              researcher: "gemini-3.1-pro",
+              writer: "claude-sonnet-4.6",
+              analyst: "gpt-5.4",
+              tester: "gemini-2.5-flash",
+            };
+            const usedAgents = action.agentIds.map(agentId => ({
+              agentId,
+              modelId: AGENT_MODEL_MAP[agentId] ?? "claude-sonnet-4.6",
+              addedAt: now,
+            }));
+            return {
+              ...t,
+              usedAgents,
+              chatMode: action.chatMode,
+              collectiveModelIds: action.collectiveModelIds,
+            };
+          }),
+        };
+      });
+      return { ...state, projects };
     }
     default: return state;
   }

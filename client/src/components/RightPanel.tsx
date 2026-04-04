@@ -236,6 +236,46 @@ export default function RightPanel() {
         {/* STEPS */}
         {tab === "steps" && (
           <div className="p-2">
+            {/* Agents used in this task */}
+            {activeTask?.usedAgents && activeTask.usedAgents.length > 0 && (
+              <div className="mb-3 px-2">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-wider">Агенты</span>
+                  {activeTask.chatMode && (
+                    <span className="text-[9px] text-muted-foreground/40 ml-auto">режим: {activeTask.chatMode}</span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {activeTask.usedAgents.map(rec => {
+                    const AGENT_META: Record<string, { label: string; icon: string; color: string }> = {
+                      orchestrator: { label: "Оркестратор", icon: "🎯", color: "text-violet-400" },
+                      planner:      { label: "Планировщик", icon: "📋", color: "text-blue-400" },
+                      coder:        { label: "Кодер",        icon: "💻", color: "text-emerald-400" },
+                      reviewer:     { label: "Ревьюер",      icon: "🔍", color: "text-amber-400" },
+                      researcher:   { label: "Исследователь", icon: "🔬", color: "text-cyan-400" },
+                      writer:       { label: "Писатель",      icon: "✍️", color: "text-pink-400" },
+                      analyst:      { label: "Аналитик",      icon: "📊", color: "text-orange-400" },
+                      tester:       { label: "Тестировщик",  icon: "🧪", color: "text-red-400" },
+                    };
+                    const meta = AGENT_META[rec.agentId] || { label: rec.agentId, icon: "🤖", color: "text-muted-foreground" };
+                    return (
+                      <div key={rec.agentId}
+                        title={`${meta.label} → ${rec.modelId}`}
+                        className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-accent/30 ${meta.color}`}>
+                        <span>{meta.icon}</span>
+                        <span className="text-muted-foreground">{meta.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                {activeTask.chatMode === "collective" && activeTask.collectiveModelIds && (
+                  <div className="mt-1.5 text-[10px] text-muted-foreground/50">
+                    Модели: {activeTask.collectiveModelIds.join(", ")}
+                  </div>
+                )}
+                <div className="mt-1.5 border-t border-border/30" />
+              </div>
+            )}
             <div className="px-2 py-1.5 mb-1">
               <span className="text-[10px] text-muted-foreground/50">Кликните на шаг чтобы увидеть код</span>
             </div>

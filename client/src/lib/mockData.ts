@@ -24,6 +24,15 @@ export interface Task {
   messages: Message[];
   createdAt: string;
   pinned?: boolean;
+  usedAgents?: UsedAgentRecord[]; // agents that participated in this task
+  chatMode?: string;              // mode used when task was sent
+  collectiveModelIds?: string[];  // models used in collective mode
+}
+
+export interface UsedAgentRecord {
+  agentId: string;    // e.g. "coder"
+  modelId: string;    // e.g. "deepseek-v3.2"
+  addedAt: string;    // ISO timestamp
 }
 
 export interface Project {
