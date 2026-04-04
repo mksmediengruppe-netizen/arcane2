@@ -30,6 +30,7 @@ export interface Project {
   name: string;
   tasks: Task[];
   createdAt: string;
+  budget?: number; // optional budget limit in USD
 }
 
 export interface RaceResult {
@@ -100,6 +101,7 @@ export const MOCK_PROJECTS: Project[] = [
     id: "p1",
     name: "Bitrix Landing",
     createdAt: "2026-04-01",
+    budget: 5.00,
     tasks: [
       {
         id: "t1", name: "Установка Bitrix на сервер", status: "done",
@@ -144,6 +146,7 @@ export const MOCK_PROJECTS: Project[] = [
     id: "p2",
     name: "AI Чат-бот для клиентов",
     createdAt: "2026-04-02",
+    budget: 4.00,
     tasks: [
       {
         id: "t5", name: "Архитектура RAG-системы", status: "done",
@@ -172,6 +175,7 @@ export const MOCK_PROJECTS: Project[] = [
     id: "p3",
     name: "Аналитика продаж",
     createdAt: "2026-04-01",
+    budget: 2.00,
     tasks: [
       {
         id: "t7", name: "Дашборд в Metabase", status: "done",

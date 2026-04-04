@@ -33,7 +33,8 @@ export type AppAction =
   | { type: "RENAME_TASK"; projectId: string; taskId: string; name: string }
   | { type: "RENAME_PROJECT"; projectId: string; name: string }
   | { type: "DELETE_TASK"; projectId: string; taskId: string }
-  | { type: "DELETE_PROJECT"; projectId: string };
+  | { type: "DELETE_PROJECT"; projectId: string }
+  | { type: "SET_PROJECT_BUDGET"; projectId: string; budget: number | undefined };
 
 // Read saved theme from localStorage, default to "dark"
 const savedTheme = (typeof window !== "undefined" && (localStorage.getItem("arcane-theme") as "dark" | "light")) || "dark";
@@ -145,6 +146,12 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const projects = state.projects.filter(p => p.id !== action.projectId);
       const wasActive = state.activeProjectId === action.projectId;
       return { ...state, projects, activeProjectId: wasActive ? null : state.activeProjectId, activeTaskId: wasActive ? null : state.activeTaskId };
+    }
+    case "SET_PROJECT_BUDGET": {
+      const projects = state.projects.map(p =>
+        p.id !== action.projectId ? p : { ...p, budget: action.budget }
+      );
+      return { ...state, projects };
     }
     case "TOGGLE_THEME": {
       const theme = state.theme === "dark" ? "light" : "dark";

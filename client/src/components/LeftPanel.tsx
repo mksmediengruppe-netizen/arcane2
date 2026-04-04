@@ -8,7 +8,7 @@ import {
   LayoutDashboard, Settings, Users, BookOpen,
   Calendar, Moon, Sun, LogOut, Zap, ChevronLeft,
   ChevronUp, HelpCircle, Globe, Download, Search, X,
-  MoreHorizontal, Pencil, Trash2
+  MoreHorizontal, Pencil, Trash2, DollarSign
 } from "lucide-react";
 import {
   AlertDialog,
@@ -81,6 +81,9 @@ export default function LeftPanel() {
   const renameInputRef = useRef<HTMLInputElement>(null);
   // Delete confirm state
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: "task" | "project"; id: string; projectId?: string; name: string } | null>(null);
+  // Budget editing state
+  const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
+  const [budgetValue, setBudgetValue] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Ctrl+K / Cmd+K focuses search
@@ -376,9 +379,12 @@ export default function LeftPanel() {
                       <MoreHorizontal size={13} />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent side="right" align="start" className="w-40">
+                  <DropdownMenuContent side="right" align="start" className="w-44">
                     <DropdownMenuItem onClick={() => startRename(project.id, project.name)}>
                       <Pencil size={12} className="mr-2" /> Переименовать
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setEditingBudgetId(project.id); setBudgetValue(project.budget != null ? String(project.budget) : ""); }}>
+                      <DollarSign size={12} className="mr-2" /> Бюджет лимит
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => setDeleteConfirm({ type: "project", id: project.id, name: project.name })} className="text-destructive focus:text-destructive">
@@ -387,6 +393,68 @@ export default function LeftPanel() {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
+
+              {/* Budget progress bar */}
+              {project.budget != null && (() => {
+                const pct = Math.min((projectCost / project.budget) * 100, 100);
+                const isWarn = pct >= 80 && pct < 100;
+                const isOver = pct >= 100;
+                const barColor = isOver ? "bg-destructive" : isWarn ? "bg-yellow-400" : "bg-primary";
+                return (
+                  <div className="px-3 pb-1.5">
+                    {editingBudgetId === project.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground">$</span>
+                        <input
+                          autoFocus
+                          type="number" min="0" step="0.5"
+                          value={budgetValue}
+                          onChange={e => setBudgetValue(e.target.value)}
+                          onBlur={() => {
+                            const v = parseFloat(budgetValue);
+                            dispatch({ type: "SET_PROJECT_BUDGET", projectId: project.id, budget: isNaN(v) || v <= 0 ? undefined : v });
+                            setEditingBudgetId(null);
+                          }}
+                          onKeyDown={e => {
+                            if (e.key === "Enter") {
+                              const v = parseFloat(budgetValue);
+                              dispatch({ type: "SET_PROJECT_BUDGET", projectId: project.id, budget: isNaN(v) || v <= 0 ? undefined : v });
+                              setEditingBudgetId(null);
+                            }
+                            if (e.key === "Escape") setEditingBudgetId(null);
+                          }}
+                          placeholder="0.00"
+                          className="w-full bg-input border border-primary/40 rounded px-1.5 py-0.5 text-[11px] text-foreground outline-none mono"
+                        />
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setEditingBudgetId(project.id); setBudgetValue(String(project.budget)); }}
+                        className="w-full group/budget"
+                        title={`Бюджет: $${project.budget?.toFixed(2)} · Потрачено: $${projectCost.toFixed(2)}`}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className={`text-[10px] mono font-medium ${
+                            isOver ? "text-destructive" : isWarn ? "text-yellow-500" : "text-muted-foreground"
+                          }`}>
+                            {isOver ? "⚠ Превышен" : isWarn ? "⚠ 80%+" : "Бюджет"}
+                          </span>
+                          <span className={`text-[10px] mono ${
+                            isOver ? "text-destructive" : isWarn ? "text-yellow-500" : "text-muted-foreground/70"
+                          }`}>
+                            ${projectCost.toFixed(2)} / ${project.budget?.toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="h-1 w-full bg-border rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${barColor} ${isOver ? "animate-pulse" : ""}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
 
               {isExpanded && (
                 <div className="ml-4 border-l border-border/50 pl-2 mb-1">
