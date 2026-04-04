@@ -1,6 +1,6 @@
 // Design: Refined Dark SaaS — Chat Panel
 // Features: EmptyChat, Capability Badges, Stop button, Follow-up suggestions, Edit message, Reactions
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useApp } from "@/contexts/AppContext";
 import { MODELS, formatCost, Message } from "@/lib/mockData";
@@ -691,6 +691,17 @@ function InputCard({
   // Per-agent model overrides (MANUAL mode only)
   const [agentModelOverrides, setAgentModelOverrides] = useState<Record<string, string>>({});
   const [showModelPickerFor, setShowModelPickerFor] = useState<string | null>(null);
+  // Animation: bump key on mode change to trigger chip entrance animation
+  const [chipAnimKey, setChipAnimKey] = useState(0);
+  const prevChatModeRef = useRef(chatMode);
+  // Bump chipAnimKey whenever chatMode changes so chips re-animate
+  useEffect(() => {
+    if (prevChatModeRef.current !== chatMode) {
+      prevChatModeRef.current = chatMode;
+      setChipAnimKey(k => k + 1);
+    }
+  }, [chatMode]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
@@ -1084,9 +1095,14 @@ function InputCard({
               <span className="text-border/30 text-[10px]">|</span>
               <div className="flex items-center gap-1 flex-wrap">
                 {chatMode === "auto" && agentIds.length === 0 && (
-                  <span className="text-[10px] text-muted-foreground/50 italic">авто-назначение при отправке</span>
+                  <span
+                    key={`auto-hint-${chipAnimKey}`}
+                    className="text-[10px] text-muted-foreground/50 italic"
+                    style={{ animation: "chipEnter 0.25s ease both" }}>
+                    авто-назначение при отправке
+                  </span>
                 )}
-                {agentIds.map(aid => {
+                {agentIds.map((aid, idx) => {
                   const agent = ALL_AGENTS.find(a => a.id === aid);
                   if (!agent) return null;
                   const effectiveModelId = agentModelOverrides[aid] || agent.modelId;
@@ -1094,7 +1110,10 @@ function InputCard({
                   const isManual = chatMode === "manual";
                   const isManus = aid === "manus";
                   return (
-                    <div key={aid} className="relative group">
+                    <div
+                      key={`${aid}-${chipAnimKey}`}
+                      className="relative group"
+                      style={{ animation: `chipEnter 0.22s ease both`, animationDelay: `${idx * 45}ms` }}>
                       {/* Agent chip */}
                       <div className={`flex flex-col px-1.5 py-0.5 rounded text-[10px] ${
                         isManus

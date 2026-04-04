@@ -275,4 +275,16 @@
   .step-appear {
     animation: step-appear 0.2s ease-out forwards;
   }
+
+  /* Agent chip entrance animation (used on mode switch) */
+  @keyframes chipEnter {
+    from {
+      opacity: 0;
+      transform: translateY(4px) scale(0.88);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
 }
