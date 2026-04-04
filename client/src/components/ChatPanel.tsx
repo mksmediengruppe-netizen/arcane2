@@ -49,23 +49,69 @@ const AGENT_STEPS_SEQUENCE = [
   { tool: "LLM",        icon: "🧠", action: "Генерирую итоговый отчёт...",                color: "text-purple-400" },
 ];
 
-function AgentStepsInline({ progress }: { progress: number }) {
-  const visibleSteps = AGENT_STEPS_SEQUENCE.slice(0, Math.ceil(progress * AGENT_STEPS_SEQUENCE.length));
+function TaskProgress({ progress }: { progress: number }) {
+  const total = AGENT_STEPS_SEQUENCE.length;
+  const doneCount = Math.floor(progress * total);
+  const activeIdx = doneCount < total ? doneCount : -1;
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
-    <div className="mb-3 space-y-1">
-      {visibleSteps.map((step, i) => (
-        <div key={i} className="flex items-center gap-2 text-[11px]">
-          <span className="w-4 h-4 rounded-full bg-emerald-400/20 flex items-center justify-center text-[8px]">✓</span>
-          <span className={`font-medium ${step.color}`}>{step.tool}</span>
-          <span className="text-foreground/60">{step.action}</span>
-        </div>
-      ))}
-      {progress < 1 && (
-        <div className="flex items-center gap-2 text-[11px]">
-          <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
-            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+    <div className="mb-3 rounded-xl border border-border/60 bg-accent/20 overflow-hidden">
+      {/* Header */}
+      <button
+        onClick={() => setCollapsed(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-accent/30 transition-colors">
+        <span className="text-[12px] font-semibold text-foreground">Прогресс задачи</span>
+        <div className="flex items-center gap-2">
+          <span className="mono text-[11px] text-muted-foreground">
+            {Math.min(doneCount + (activeIdx >= 0 ? 1 : 0), total)} / {total}
           </span>
-          <span className="text-muted-foreground animate-pulse">Выполняюсь...</span>
+          <ChevronDown size={12} className={`text-muted-foreground transition-transform ${collapsed ? "-rotate-90" : ""}`} />
+        </div>
+      </button>
+
+      {/* Steps list */}
+      {!collapsed && (
+        <div className="px-4 pb-3 space-y-0">
+          {AGENT_STEPS_SEQUENCE.map((step, i) => {
+            const isDone = i < doneCount;
+            const isActive = i === activeIdx;
+            return (
+              <div key={i} className={`flex items-start gap-3 py-1.5 ${
+                i < AGENT_STEPS_SEQUENCE.length - 1 ? "border-b border-border/20" : ""
+              }`}>
+                {/* Status indicator */}
+                {isDone ? (
+                  <span className="mt-0.5 flex-shrink-0 w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <Check size={9} className="text-emerald-400" />
+                  </span>
+                ) : isActive ? (
+                  <span className="mt-0.5 flex-shrink-0 w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center">
+                    <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  </span>
+                ) : (
+                  <span className="mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border border-border/60 flex items-center justify-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/20" />
+                  </span>
+                )}
+                {/* Text */}
+                <div className="flex-1 min-w-0">
+                  <div className={`text-[12px] leading-snug ${
+                    isDone ? "text-foreground/60 line-through decoration-muted-foreground/30" :
+                    isActive ? "text-foreground font-medium" :
+                    "text-muted-foreground/50"
+                  }`}>
+                    {step.action.replace("...", "")}
+                  </div>
+                  {isActive && (
+                    <div className="text-[10px] text-muted-foreground/60 mt-0.5 animate-pulse">
+                      {step.tool} · выполняю...
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -809,7 +855,7 @@ export default function ChatPanel() {
                   <span className="mono text-[10px] text-blue-400 animate-pulse">{formatCost(liveCost)}</span>
                 </div>
                 {/* Inline agent steps */}
-                <AgentStepsInline progress={Math.min(1, streamingText.length / 200)} />
+                <TaskProgress progress={Math.min(1, streamingText.length / 200)} />
                 {/* Live code mini preview */}
                 <div className="mb-3">
                   <LiveCodePreview isGenerating={isGenerating} />

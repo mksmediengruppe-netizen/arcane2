@@ -496,8 +496,11 @@ export default function LeftPanel() {
                                 onClick={e => e.stopPropagation()}
                                 className="w-full bg-input border border-primary/50 rounded px-1.5 py-0.5 text-[12px] text-foreground outline-none" />
                             ) : (
-                              <div className={`text-[12px] truncate leading-tight ${isActive ? "text-foreground font-medium" : "text-foreground/80"}`}>
-                                {task.name}
+                              <div className={`text-[12px] truncate leading-tight flex items-center gap-1 ${isActive ? "text-foreground font-medium" : "text-foreground/80"}`}>
+                                {task.pinned && (
+                                  <Pin size={9} className="flex-shrink-0 text-amber-400 fill-amber-400/30" />
+                                )}
+                                <span className="truncate">{task.name}</span>
                               </div>
                             )}
                             <div className="flex items-center gap-1.5 mt-0.5">
