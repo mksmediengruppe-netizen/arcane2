@@ -217,6 +217,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
             if (t.id !== action.taskId) return t;
             // Import ALL_AGENTS mapping inline to get modelId per agentId
             const AGENT_MODEL_MAP: Record<string, string> = {
+              manus: "kimi-k2.5", // Manus subscription agent (free)
               orchestrator: "claude-opus-4.6",
               planner: "claude-sonnet-4.6",
               coder: "deepseek-v3.2",

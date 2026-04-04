@@ -425,6 +425,7 @@ const COLLECTIVE_SYNTH = "claude-opus-4.6";
 export type AgentRole = { id: string; label: string; icon: string; color: string; modelId: string };
 
 const ALL_AGENTS: AgentRole[] = [
+  { id: "manus",        label: "Manus",           icon: "✦", color: "text-primary",     modelId: "kimi-k2.5" },
   { id: "orchestrator", label: "Оркестратор",  icon: "🎯", color: "text-violet-400",  modelId: "claude-opus-4.6" },
   { id: "planner",      label: "Планировщик",  icon: "📋", color: "text-blue-400",   modelId: "claude-sonnet-4.6" },
   { id: "coder",        label: "Кодер",         icon: "💻", color: "text-emerald-400",modelId: "deepseek-v3.2" },
@@ -436,12 +437,13 @@ const ALL_AGENTS: AgentRole[] = [
 ];
 
 // Preset agents per mode (read-only for standard modes)
+// Spec: top=full team, optimum=planner+coder+reviewer, lite=coder+reviewer, free=manus only (subscription), normal=coder
 const MODE_AGENTS: Record<string, string[]> = {
   auto:       [], // auto-assigned on send
-  top:        ["orchestrator", "planner", "coder", "reviewer", "researcher"],
+  top:        ["orchestrator", "planner", "coder", "reviewer", "researcher", "tester"],
   optimum:    ["planner", "coder", "reviewer"],
   lite:       ["coder", "reviewer"],
-  free:       ["coder"],
+  free:       ["manus", "coder"], // Manus (subscription) + free models
   manual:     ["planner", "coder"], // editable
   normal:     ["coder"],
   collective: [], // model-based, handled separately
@@ -1084,18 +1086,22 @@ function InputCard({
                   const effectiveModelId = agentModelOverrides[aid] || agent.modelId;
                   const model = MODELS.find(m => m.id === effectiveModelId);
                   const isManual = chatMode === "manual";
+                  const isManus = aid === "manus";
                   return (
                     <div key={aid} className="relative group">
                       {/* Agent chip */}
                       <div className={`flex flex-col px-1.5 py-0.5 rounded text-[10px] ${
-                        isManual
-                          ? "bg-accent/60 border border-border/50"
-                          : "bg-accent/30"
+                        isManus
+                          ? "bg-primary/10 border border-primary/30"
+                          : isManual
+                            ? "bg-accent/60 border border-border/50"
+                            : "bg-accent/30"
                       } ${agent.color}`}>
                         {/* Top row: icon + name + remove */}
                         <div className="flex items-center gap-1">
                           <span>{agent.icon}</span>
                           <span className="font-medium">{agent.label}</span>
+                          {isManus && <span className="text-[8px] bg-primary/20 text-primary px-0.5 rounded">sub</span>}
                           {isManual && (
                             <button
                               onClick={() => setAgentIds(prev => prev.filter(id => id !== aid))}
@@ -1104,8 +1110,10 @@ function InputCard({
                             </button>
                           )}
                         </div>
-                        {/* Bottom row: model name */}
-                        {model && (
+                        {/* Bottom row: model name or subscription label */}
+                        {isManus ? (
+                          <span className="text-[9px] text-primary/60 mt-0.5">✦ подписка</span>
+                        ) : model && (
                           isManual ? (
                             <button
                               onClick={() => setShowModelPickerFor(v => v === aid ? null : aid)}

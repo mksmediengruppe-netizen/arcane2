@@ -248,6 +248,7 @@ export default function RightPanel() {
                 <div className="flex flex-wrap gap-1">
                   {activeTask.usedAgents.map(rec => {
                     const AGENT_META: Record<string, { label: string; icon: string; color: string }> = {
+                      manus:        { label: "Manus",           icon: "✦",  color: "text-primary" },
                       orchestrator: { label: "Оркестратор", icon: "🎯", color: "text-violet-400" },
                       planner:      { label: "Планировщик", icon: "📋", color: "text-blue-400" },
                       coder:        { label: "Кодер",        icon: "💻", color: "text-emerald-400" },
