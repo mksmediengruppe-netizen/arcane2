@@ -105,7 +105,7 @@ export const MOCK_PROJECTS: Project[] = [
     budget: 5.00,
     tasks: [
       {
-        id: "t1", name: "Установка Bitrix на сервер", status: "done",
+        id: "t1", name: "Установка Bitrix на сервер", status: "done", pinned: true,
         cost: 1.24, duration: "4m 12s", model: "claude-sonnet-4.6", createdAt: "2026-04-01",
         messages: [
           { id: "m1", role: "user", content: "Установи Bitrix CMS на сервер Ubuntu 22.04. Нужен полный процесс: nginx, php-fpm, mysql, настройка прав.", timestamp: "10:00" },

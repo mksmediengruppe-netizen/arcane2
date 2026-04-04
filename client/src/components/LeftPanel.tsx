@@ -101,10 +101,10 @@ export default function LeftPanel() {
   const searchRef = useRef<HTMLInputElement>(null);
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Ctrl+K / Cmd+K focuses search
+  // Ctrl+F / Cmd+F focuses search (Cmd+K is reserved for CommandPalette in MainLayout)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key === "f" && !(e.target as HTMLElement)?.closest('input, textarea')) {
         e.preventDefault();
         searchRef.current?.focus();
       }
@@ -275,7 +275,7 @@ export default function LeftPanel() {
             </>
           )}
           {searchQuery.trim().length === 0 && (
-            <kbd className="text-[9px] text-muted-foreground/60 font-mono flex-shrink-0">⌘K</kbd>
+            <kbd className="text-[9px] text-muted-foreground/60 font-mono flex-shrink-0">⌘F</kbd>
           )}
         </div>
       </div>
@@ -654,6 +654,18 @@ export default function LeftPanel() {
             </DropdownMenuContent>
           </DropdownMenu>
 
+          {/* Bell notifications button */}
+          <button
+            onClick={() => setShowNotifications(true)}
+            className="relative p-1.5 rounded-md hover:bg-accent/60 transition-colors text-muted-foreground hover:text-foreground flex-shrink-0"
+            title="Уведомления">
+            <Bell size={14} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-red-500 flex items-center justify-center text-[8px] font-bold text-white leading-none">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
           {/* Arrow toggle for nav list */}
           <button
             onClick={() => setNavExpanded(v => !v)}

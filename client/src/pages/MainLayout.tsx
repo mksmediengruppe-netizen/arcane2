@@ -120,6 +120,16 @@ export default function MainLayout() {
           dispatch({ type: "TOGGLE_RIGHT_PANEL" });
           return;
         }
+        // Cmd+N — new task in active project
+        if (e.key === "n" && !e.shiftKey) {
+          e.preventDefault();
+          if (state.activeProjectId) {
+            const name = `Новая задача ${new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" })}`;
+            dispatch({ type: "ADD_TASK", projectId: state.activeProjectId, taskName: name });
+            toast.success("→ Новая задача создана", { duration: 1500 });
+          }
+          return;
+        }
         // Cmd+Shift+D — toggle theme
         if (e.key === "D" && e.shiftKey) {
           e.preventDefault();
@@ -137,7 +147,7 @@ export default function MainLayout() {
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [dispatch, isFullView]);
+  }, [dispatch, isFullView, state.activeProjectId]);
 
     return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
