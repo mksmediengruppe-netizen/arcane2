@@ -421,6 +421,48 @@ server {
 const COLLECTIVE_MODELS = ["claude-sonnet-4.6", "gpt-5.4", "deepseek-v3.2"];
 const COLLECTIVE_SYNTH = "claude-opus-4.6";
 
+// ── Agent role definitions ──────────────────────────────────────────────────
+export type AgentRole = { id: string; label: string; icon: string; color: string; modelId: string };
+
+const ALL_AGENTS: AgentRole[] = [
+  { id: "orchestrator", label: "Оркестратор",  icon: "🎯", color: "text-violet-400",  modelId: "claude-opus-4.6" },
+  { id: "planner",      label: "Планировщик",  icon: "📋", color: "text-blue-400",   modelId: "claude-sonnet-4.6" },
+  { id: "coder",        label: "Кодер",         icon: "💻", color: "text-emerald-400",modelId: "deepseek-v3.2" },
+  { id: "reviewer",     label: "Ревьюер",       icon: "🔍", color: "text-amber-400",  modelId: "gpt-5.4" },
+  { id: "researcher",   label: "Исследователь", icon: "🔬", color: "text-cyan-400",   modelId: "gemini-3.1-pro" },
+  { id: "writer",       label: "Писатель",       icon: "✍️", color: "text-pink-400",   modelId: "claude-sonnet-4.6" },
+  { id: "analyst",      label: "Аналитик",       icon: "📊", color: "text-orange-400", modelId: "gpt-5.4" },
+  { id: "tester",       label: "Тестировщик",   icon: "🧪", color: "text-red-400",    modelId: "gemini-2.5-flash" },
+];
+
+// Preset agents per mode (read-only for standard modes)
+const MODE_AGENTS: Record<string, string[]> = {
+  auto:       [], // auto-assigned on send
+  top:        ["orchestrator", "planner", "coder", "reviewer", "researcher"],
+  optimum:    ["planner", "coder", "reviewer"],
+  lite:       ["coder", "reviewer"],
+  free:       ["coder"],
+  manual:     ["planner", "coder"], // editable
+  normal:     ["coder"],
+  collective: [], // model-based, handled separately
+};
+
+// Auto-assign agents based on task text keywords
+function autoAssignAgents(text: string): string[] {
+  const t = text.toLowerCase();
+  const agents: string[] = [];
+  if (t.match(/план|архитект|структур|design/)) agents.push("planner");
+  if (t.match(/код|разраб|implement|build|create|написа/)) agents.push("coder");
+  if (t.match(/провер|ревью|review|audit|тест/)) agents.push("reviewer");
+  if (t.match(/исслед|найди|search|анализ|research/)) agents.push("researcher");
+  if (t.match(/напиши|текст|статья|write|content/)) agents.push("writer");
+  if (t.match(/аналит|данные|data|отчёт|report/)) agents.push("analyst");
+  if (t.match(/тест|test|qa|баг|bug/)) agents.push("tester");
+  if (agents.length === 0) agents.push("coder");
+  if (agents.length > 1) agents.unshift("orchestrator");
+  return agents;
+}
+
 function CollectiveBlock({ query }: { query: string }) {
   const [expanded, setExpanded] = useState(false);
   const opinions = COLLECTIVE_MODELS.map(mid => {
@@ -601,6 +643,7 @@ function InputCard({
   capabilities, setCapabilities, chatMode, setChatMode,
   showModePicker, setShowModePicker, showModelPicker, setShowModelPicker,
   selectedModel, setSelectedModel, textareaRef, liveCost,
+  agentIds, setAgentIds, collectiveModelIds, setCollectiveModelIds,
 }: {
   input: string;
   setInput: (v: string) => void;
@@ -619,6 +662,10 @@ function InputCard({
   setSelectedModel: (v: string) => void;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   liveCost: number;
+  agentIds: string[];
+  setAgentIds: React.Dispatch<React.SetStateAction<string[]>>;
+  collectiveModelIds: string[];
+  setCollectiveModelIds: React.Dispatch<React.SetStateAction<string[]>>;
 }) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
@@ -626,6 +673,8 @@ function InputCard({
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [voiceSupported] = useState(() => typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window));
+  const [showAgentPicker, setShowAgentPicker] = useState(false);
+  const [showCollectivePicker, setShowCollectivePicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
@@ -1007,11 +1056,133 @@ function InputCard({
             </div>
           )}
 
+          {/* ── Agent chips (non-collective modes) ── */}
+          {chatMode !== "collective" && (
+            <>
+              <span className="text-border/30 text-[10px]">|</span>
+              <div className="flex items-center gap-1 flex-wrap">
+                {chatMode === "auto" && agentIds.length === 0 && (
+                  <span className="text-[10px] text-muted-foreground/50 italic">авто-назначение при отправке</span>
+                )}
+                {agentIds.map(aid => {
+                  const agent = ALL_AGENTS.find(a => a.id === aid);
+                  if (!agent) return null;
+                  const model = MODELS.find(m => m.id === agent.modelId);
+                  return (
+                    <div key={aid} className="relative group">
+                      <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] ${
+                        chatMode === "manual"
+                          ? "bg-accent/60 border border-border/50 cursor-default"
+                          : "bg-accent/30 cursor-default"
+                      } ${agent.color}`}
+                        title={model ? `${agent.label} → ${model.name}` : agent.label}>
+                        <span>{agent.icon}</span>
+                        <span className="text-muted-foreground">{agent.label}</span>
+                        {chatMode === "manual" && (
+                          <button
+                            onClick={() => setAgentIds(prev => prev.filter(id => id !== aid))}
+                            className="ml-0.5 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all text-muted-foreground">
+                            <X size={8} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {/* MANUAL: add agent button */}
+                {chatMode === "manual" && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowAgentPicker(v => !v)}
+                      className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] text-muted-foreground/50 hover:text-foreground hover:bg-accent/50 border border-dashed border-border/40 transition-colors">
+                      <Plus size={9} />
+                      <span>агент</span>
+                    </button>
+                    {showAgentPicker && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowAgentPicker(false)} />
+                        <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[200px]">
+                          {ALL_AGENTS.filter(a => !agentIds.includes(a.id)).map(agent => {
+                            const model = MODELS.find(m => m.id === agent.modelId);
+                            return (
+                              <button key={agent.id}
+                                onClick={() => { setAgentIds(prev => [...prev, agent.id]); setShowAgentPicker(false); }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors">
+                                <span className={`text-[12px] ${agent.color}`}>{agent.icon}</span>
+                                <div className="flex-1 text-left">
+                                  <div className="text-[11px] text-foreground">{agent.label}</div>
+                                  {model && <div className="text-[9px] text-muted-foreground">{model.name}</div>}
+                                </div>
+                              </button>
+                            );
+                          })}
+                          {ALL_AGENTS.filter(a => !agentIds.includes(a.id)).length === 0 && (
+                            <div className="px-3 py-2 text-[11px] text-muted-foreground">Все агенты добавлены</div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ── Collective: model chips ── */}
           {chatMode === "collective" && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-primary">
-              <Brain size={10} />
-              <span>{COLLECTIVE_MODELS.length} моделей + синтез</span>
-            </div>
+            <>
+              <span className="text-border/30 text-[10px]">|</span>
+              <div className="flex items-center gap-1 flex-wrap">
+                {collectiveModelIds.map(mid => {
+                  const m = MODELS.find(x => x.id === mid);
+                  if (!m) return null;
+                  return (
+                    <div key={mid} className="relative group">
+                      <div className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 border border-primary/20 cursor-default"
+                        title={m.name}>
+                        <span style={{ color: m.color }}>{m.icon}</span>
+                        <span className="text-foreground/70">{m.name.split(" ").slice(-1)[0]}</span>
+                        <button
+                          onClick={() => setCollectiveModelIds(prev => prev.filter(id => id !== mid))}
+                          className="ml-0.5 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all text-muted-foreground">
+                          <X size={8} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {/* Add model to collective */}
+                {collectiveModelIds.length < 5 && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowCollectivePicker(v => !v)}
+                      className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] text-primary/50 hover:text-primary hover:bg-primary/10 border border-dashed border-primary/30 transition-colors">
+                      <Plus size={9} />
+                      <span>модель</span>
+                    </button>
+                    {showCollectivePicker && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setShowCollectivePicker(false)} />
+                        <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[220px] max-h-48 overflow-y-auto">
+                          {MODELS.filter(m => !collectiveModelIds.includes(m.id)).map(m => (
+                            <button key={m.id}
+                              onClick={() => { setCollectiveModelIds(prev => [...prev, m.id]); setShowCollectivePicker(false); }}
+                              className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors">
+                              <span className="text-[12px]" style={{ color: m.color }}>{m.icon}</span>
+                              <div className="flex-1 text-left">
+                                <div className="text-[11px] text-foreground">{m.name}</div>
+                                <div className="text-[9px] text-muted-foreground">{m.provider}</div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+                <span className="text-[10px] text-muted-foreground/50">+ синтез</span>
+              </div>
+            </>
           )}
 
           <div className="flex-1" />
@@ -1038,7 +1209,19 @@ export default function ChatPanel() {
     search: true, browser: true, ssh: false, files: false, images: false,
   });
   const [showFollowUp, setShowFollowUp] = useState(false);
+  const [agentIds, setAgentIds] = useState<string[]>(() => MODE_AGENTS["normal"] || ["coder"]);
+  const [collectiveModelIds, setCollectiveModelIds] = useState<string[]>(COLLECTIVE_MODELS);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Reset agents when mode changes (except manual/collective which keep user selection)
+  useEffect(() => {
+    if (chatMode !== "manual" && chatMode !== "collective" && chatMode !== "auto") {
+      setAgentIds(MODE_AGENTS[chatMode] || ["coder"]);
+    }
+    if (chatMode === "auto") {
+      setAgentIds([]); // will be auto-assigned on send
+    }
+  }, [chatMode]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const stopRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1091,6 +1274,11 @@ export default function ChatPanel() {
   const handleSend = async (overrideInput?: string) => {
     const text = (overrideInput ?? input).trim();
     if (!text || !state.activeProjectId || !state.activeTaskId || isGenerating) return;
+    // AUTO mode: assign agents based on task content
+    if (chatMode === "auto") {
+      const assigned = autoAssignAgents(text);
+      setAgentIds(assigned);
+    }
     const userMsg: Message = {
       id: `m${Date.now()}`, role: "user", content: text,
       timestamp: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
@@ -1321,6 +1509,10 @@ export default function ChatPanel() {
         setSelectedModel={setSelectedModel}
         textareaRef={textareaRef}
         liveCost={liveCost}
+        agentIds={agentIds}
+        setAgentIds={setAgentIds}
+        collectiveModelIds={collectiveModelIds}
+        setCollectiveModelIds={setCollectiveModelIds}
       />
 
       {/* LEGACY input area — hidden, kept for reference */}
