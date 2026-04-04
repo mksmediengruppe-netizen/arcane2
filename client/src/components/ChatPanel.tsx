@@ -561,9 +561,14 @@ function MessageRow({
             <span className="text-[11px] font-medium text-foreground">{model?.name || msg.model}</span>
           </>
         )}
-        <span className="text-[10px] text-muted-foreground/50">{msg.timestamp}</span>
+        <span className="text-[10px] text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity">{msg.timestamp}</span>
         {msg.cost && (
-          <span className="mono text-[10px] text-muted-foreground/50">{formatCost(msg.cost)}</span>
+          <span className="mono text-[10px] text-muted-foreground/30 opacity-0 group-hover:opacity-100 transition-opacity">{formatCost(msg.cost)}</span>
+        )}
+        {!isUser && msg.latency != null && (
+          <span className="mono text-[10px] text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity bg-accent/60 px-1.5 py-0.5 rounded">
+            {msg.latency}s
+          </span>
         )}
         <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           {isUser ? (
@@ -1417,6 +1422,7 @@ export default function ChatPanel() {
 
     const model = MODELS.find(m => m.id === selectedModel);
     const costPerChar = (model?.costOut || 5) / 1_000_000 / 4;
+    const sendStartTime = Date.now();
     let i = 0;
     intervalRef.current = setInterval(() => {
       if (stopRef.current) return;
@@ -1430,6 +1436,7 @@ export default function ChatPanel() {
           timestamp: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
           tokens: { in: Math.floor(Math.random() * 1000 + 500), out: Math.floor(fullText.length / 4) },
           cost: finalCost,
+          latency: parseFloat(((Date.now() - sendStartTime) / 1000).toFixed(1)),
         };
         dispatch({ type: "ADD_MESSAGE", projectId: state.activeProjectId!, taskId: state.activeTaskId!, message: aiMsg });
         dispatch({ type: "UPDATE_TASK_STATUS", projectId: state.activeProjectId!, taskId: state.activeTaskId!, status: "done", duration: `${Math.floor(Math.random() * 5 + 1)}m ${Math.floor(Math.random() * 59)}s` });

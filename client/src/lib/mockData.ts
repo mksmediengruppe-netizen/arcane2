@@ -12,6 +12,7 @@ export interface Message {
   tokens?: { in: number; out: number };
   cost?: number;
   thinking?: string;
+  latency?: number; // response time in seconds
 }
 
 export interface Task {
