@@ -438,7 +438,7 @@ function MessageRow({
 }
 
 // ── Uploaded file chip type ────────────────────────────────────────────────────────────────
-interface UploadedFile { id: string; name: string; size: number; type: string; }
+interface UploadedFile { id: string; name: string; size: number; type: string; preview?: string; }
 
 // ── InputCard ──────────────────────────────────────────────────────────────────────────
 function InputCard({
@@ -467,6 +467,7 @@ function InputCard({
 }) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [pasteHighlight, setPasteHighlight] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceSupported] = useState(() => typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window));
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -475,15 +476,36 @@ function InputCard({
   const currentMode = CHAT_MODES.find(m => m.id === chatMode) || CHAT_MODES[0];
   const currentModel = MODELS.find(m => m.id === selectedModel) || MODELS[0];
 
-  const addFiles = useCallback((incoming: FileList | File[]) => {
+  const addFiles = useCallback((incoming: FileList | File[], fromPaste = false) => {
     const arr = Array.from(incoming);
     const chips: UploadedFile[] = arr.map(f => ({
       id: Math.random().toString(36).slice(2),
-      name: f.name, size: f.size, type: f.type,
+      name: f.name || `screenshot_${Date.now()}.png`,
+      size: f.size, type: f.type,
+      preview: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined,
     }));
     setFiles(prev => [...prev, ...chips]);
-    toast.success(`Загружено ${arr.length} файл${arr.length > 1 ? "а" : ""}`);
+    if (fromPaste) {
+      toast.success(`📷 Изображение вставлено из буфера обмена`);
+    } else {
+      toast.success(`Загружено ${arr.length} файл${arr.length > 1 ? "а" : ""}`);
+    }
   }, []);
+
+  const handlePaste = useCallback((e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(e.clipboardData?.items || []);
+    const imageItems = items.filter(item => item.type.startsWith("image/"));
+    if (imageItems.length === 0) return; // let normal text paste proceed
+    e.preventDefault();
+    const imageFiles = imageItems
+      .map(item => item.getAsFile())
+      .filter((f): f is File => f !== null);
+    if (imageFiles.length > 0) {
+      addFiles(imageFiles, true);
+      setPasteHighlight(true);
+      setTimeout(() => setPasteHighlight(false), 600);
+    }
+  }, [addFiles]);
 
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = (e: React.DragEvent) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setIsDragging(false); };
@@ -559,6 +581,8 @@ function InputCard({
       <div className={`relative rounded-xl border transition-all duration-150 ${
         isDragging
           ? "border-primary/60 bg-accent/30"
+          : pasteHighlight
+          ? "border-emerald-400/70 bg-emerald-400/5"
           : "border-border bg-input/60 hover:border-border/80 focus-within:border-primary/40"
       }`}>
 
@@ -566,12 +590,19 @@ function InputCard({
         {files.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
             {files.map(f => (
-              <div key={f.id} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent border border-border text-[11px] text-foreground max-w-[180px]">
-                <Paperclip size={10} className="text-muted-foreground flex-shrink-0" />
-                <span className="truncate">{f.name}</span>
-                <span className="text-muted-foreground/60 flex-shrink-0">{formatFileSize(f.size)}</span>
-                <button onClick={() => setFiles(prev => prev.filter(x => x.id !== f.id))}
-                  className="flex-shrink-0 text-muted-foreground hover:text-foreground transition-colors ml-0.5">
+              <div key={f.id} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent border border-border text-[11px] text-foreground max-w-[200px] group">
+                {f.preview ? (
+                  <img src={f.preview} alt={f.name}
+                    className="w-8 h-8 rounded object-cover flex-shrink-0 border border-border/50" />
+                ) : (
+                  <Paperclip size={10} className="text-muted-foreground flex-shrink-0" />
+                )}
+                <div className="flex flex-col min-w-0">
+                  <span className="truncate leading-tight">{f.name}</span>
+                  <span className="text-muted-foreground/60 text-[10px]">{formatFileSize(f.size)}</span>
+                </div>
+                <button onClick={() => { if (f.preview) URL.revokeObjectURL(f.preview); setFiles(prev => prev.filter(x => x.id !== f.id)); }}
+                  className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors ml-0.5 opacity-0 group-hover:opacity-100">
                   <X size={10} />
                 </button>
               </div>
@@ -585,6 +616,7 @@ function InputCard({
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           placeholder={
             isListening
               ? "Слушаю..."
