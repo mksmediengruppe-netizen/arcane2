@@ -1,6 +1,7 @@
 // Design: Refined Dark SaaS — Chat Panel
 // Features: EmptyChat, Capability Badges, Stop button, Follow-up suggestions, Edit message, Reactions
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useApp } from "@/contexts/AppContext";
 import { MODELS, formatCost, Message } from "@/lib/mockData";
 import {
@@ -468,6 +469,7 @@ function InputCard({
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [pasteHighlight, setPasteHighlight] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [voiceSupported] = useState(() => typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window));
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -552,6 +554,14 @@ function InputCard({
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
+  // Close lightbox on Escape
+  useEffect(() => {
+    if (!lightboxSrc) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setLightboxSrc(null); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [lightboxSrc]);
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + " B";
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
@@ -593,7 +603,8 @@ function InputCard({
               <div key={f.id} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent border border-border text-[11px] text-foreground max-w-[200px] flex-shrink-0 group">
                 {f.preview ? (
                   <img src={f.preview} alt={f.name}
-                    className="w-8 h-8 rounded object-cover flex-shrink-0 border border-border/50" />
+                    onClick={() => setLightboxSrc(f.preview!)}
+                    className="w-8 h-8 rounded object-cover flex-shrink-0 border border-border/50 cursor-zoom-in hover:opacity-80 transition-opacity" />
                 ) : (
                   <Paperclip size={10} className="text-muted-foreground flex-shrink-0" />
                 )}
@@ -618,6 +629,45 @@ function InputCard({
               </button>
             )}
           </div>
+        )}
+
+        {/* Image lightbox portal */}
+        {lightboxSrc && createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+            style={{ background: "rgba(0,0,0,0.82)", backdropFilter: "blur(6px)", animation: "fadeIn 0.12s ease" }}
+            onClick={() => setLightboxSrc(null)}>
+            <div
+              className="relative rounded-xl overflow-hidden shadow-2xl"
+              style={{ maxWidth: "90vw", maxHeight: "90vh", animation: "scaleIn 0.15s ease" }}
+              onClick={e => e.stopPropagation()}>
+              {/* Top bar */}
+              <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 py-2 z-10"
+                style={{ background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)" }}>
+                <span className="text-white/70 text-[11px] font-mono truncate max-w-[60%]">
+                  {files.find(f => f.preview === lightboxSrc)?.name ?? "image"}
+                </span>
+                <div className="flex items-center gap-2">
+                  <a href={lightboxSrc}
+                    download={files.find(f => f.preview === lightboxSrc)?.name ?? "image.png"}
+                    onClick={e => e.stopPropagation()}
+                    className="text-white/70 hover:text-white transition-colors p-1 rounded"
+                    title="Скачать">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  </a>
+                  <button onClick={() => setLightboxSrc(null)}
+                    className="text-white/70 hover:text-white transition-colors p-1 rounded"
+                    title="Закрыть (Esc)">
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+              <img src={lightboxSrc} alt="Preview"
+                className="block object-contain"
+                style={{ maxWidth: "90vw", maxHeight: "85vh" }} />
+            </div>
+          </div>,
+          document.body
         )}
 
         {/* Textarea */}
