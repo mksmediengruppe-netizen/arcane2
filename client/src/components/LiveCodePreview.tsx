@@ -358,13 +358,42 @@ function useHtmlPreview(step: StepPayload) {
 
 // ── Markdown preview hook ────────────────────────────────────────────────────────────────
 const MD_PREVIEW_STYLE = `
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    max-width: 860px; margin: 0 auto; padding: 2.5rem 2rem;
-    background: #0f1117; color: #e2e8f0;
-    line-height: 1.75;
+    background: #0b0d14; color: #e2e8f0;
+    margin: 0; padding: 0; line-height: 1.75;
   }
-  h1, h2, h3, h4 { color: #f8fafc; font-weight: 700; margin-top: 2rem; margin-bottom: 0.75rem; }
+  .layout { display: flex; min-height: 100vh; }
+  .toc-sidebar {
+    width: 240px; flex-shrink: 0;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    background: #0f1117; border-right: 1px solid #1e293b;
+    padding: 2rem 1rem 2rem 1.25rem;
+    scrollbar-width: thin; scrollbar-color: #334155 transparent;
+  }
+  .toc-title {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: #475569; margin-bottom: 1rem;
+  }
+  .toc-list { list-style: none; padding: 0; margin: 0; }
+  .toc-list li { margin: 0; }
+  .toc-list a {
+    display: block; padding: 0.3rem 0.5rem;
+    font-size: 0.8rem; color: #64748b; text-decoration: none;
+    border-left: 2px solid transparent;
+    border-radius: 0 4px 4px 0;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .toc-list a:hover { color: #e2e8f0; background: #1e293b; border-left-color: #6366f1; }
+  .toc-list a.active { color: #a5b4fc; border-left-color: #6366f1; background: rgba(30,41,59,0.4); }
+  .toc-h1 a { font-weight: 600; color: #94a3b8; }
+  .toc-h2 a { padding-left: 1rem; }
+  .toc-h3 a { padding-left: 1.75rem; font-size: 0.75rem; }
+  .content { flex: 1; max-width: 820px; padding: 2.5rem 3rem; min-width: 0; }
+  h1, h2, h3, h4 { color: #f8fafc; font-weight: 700; margin-top: 2.25rem; margin-bottom: 0.75rem; scroll-margin-top: 1.5rem; }
   h1 { font-size: 2rem; border-bottom: 1px solid #334155; padding-bottom: 0.5rem; }
   h2 { font-size: 1.4rem; border-bottom: 1px solid #1e293b; padding-bottom: 0.35rem; }
   h3 { font-size: 1.1rem; }
@@ -378,14 +407,12 @@ const MD_PREVIEW_STYLE = `
   }
   pre {
     background: #1e293b; border: 1px solid #334155;
-    border-radius: 8px; padding: 1.25rem; overflow-x: auto;
-    margin: 1.25rem 0;
+    border-radius: 8px; padding: 1.25rem; overflow-x: auto; margin: 1.25rem 0;
   }
   pre code { background: none; padding: 0; color: #e2e8f0; }
   blockquote {
     border-left: 3px solid #6366f1; margin: 1rem 0;
-    padding: 0.5rem 1rem; background: #1e293b; border-radius: 0 6px 6px 0;
-    color: #94a3b8;
+    padding: 0.5rem 1rem; background: #1e293b; border-radius: 0 6px 6px 0; color: #94a3b8;
   }
   ul, ol { padding-left: 1.5rem; margin: 0.75rem 0; }
   li { margin: 0.35rem 0; }
@@ -395,6 +422,39 @@ const MD_PREVIEW_STYLE = `
   tr:hover td { background: #0f172a; }
   hr { border: none; border-top: 1px solid #334155; margin: 2rem 0; }
   img { max-width: 100%; border-radius: 8px; }
+  @media (max-width: 700px) { .toc-sidebar { display: none; } .content { padding: 1.5rem 1.25rem; } }
+`;
+
+const MD_PREVIEW_SCRIPT = `
+  (function() {
+    var headings = document.querySelectorAll('.content h1, .content h2, .content h3');
+    var toc = document.getElementById('toc');
+    if (!toc || headings.length === 0) return;
+    var ul = document.createElement('ul');
+    ul.className = 'toc-list';
+    headings.forEach(function(h, i) {
+      if (!h.id) h.id = 'h-' + i;
+      var li = document.createElement('li');
+      li.className = 'toc-' + h.tagName.toLowerCase();
+      var a = document.createElement('a');
+      a.href = '#' + h.id;
+      a.textContent = h.textContent;
+      li.appendChild(a);
+      ul.appendChild(li);
+    });
+    toc.appendChild(ul);
+    var links = ul.querySelectorAll('a');
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          links.forEach(function(l) { l.classList.remove('active'); });
+          var active = ul.querySelector('a[href="#' + entry.target.id + '"]');
+          if (active) active.classList.add('active');
+        }
+      });
+    }, { rootMargin: '0px 0px -70% 0px', threshold: 0 });
+    headings.forEach(function(h) { observer.observe(h); });
+  })();
 `;
 
 function useMarkdownPreview(step: StepPayload) {
@@ -403,7 +463,7 @@ function useMarkdownPreview(step: StepPayload) {
     const md = step.lines.join("\n");
     const body = await marked.parse(md);
     const title = step.file ? step.file.split("/").pop() || step.file : "Preview";
-    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${title}</title><style>${MD_PREVIEW_STYLE}</style></head><body>${body}</body></html>`;
+    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${title}</title><style>${MD_PREVIEW_STYLE}</style></head><body><div class="layout"><nav class="toc-sidebar"><div class="toc-title">Contents</div><div id="toc"></div></nav><main class="content">${body}</main></div><script>${MD_PREVIEW_SCRIPT}<\/script></body></html>`;
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank", "noopener");
@@ -735,7 +795,7 @@ export default function LiveCodePreview({
                   const md = activeStep.lines.join("\n");
                   const body = await marked.parse(md);
                   const title = activeStep.file ? activeStep.file.split("/").pop() || activeStep.file : "Preview";
-                  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${title}</title><style>${MD_PREVIEW_STYLE}</style></head><body>${body}</body></html>`;
+                  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>${title}</title><style>${MD_PREVIEW_STYLE}</style></head><body><div class="layout"><nav class="toc-sidebar"><div class="toc-title">Contents</div><div id="toc"></div></nav><main class="content">${body}</main></div><script>${MD_PREVIEW_SCRIPT}<\/script></body></html>`;
                   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
                   const url = URL.createObjectURL(blob);
                   window.open(url, "_blank", "noopener");
