@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X, FileCode, Terminal, FileText, Globe, Brain, ChevronLeft, Copy, Check } from "lucide-react";
+import { X, FileCode, Terminal, FileText, Globe, Brain, ChevronLeft, Copy, Check, Download } from "lucide-react";
 import { toast } from "sonner";
 
 // ── Step payload type ─────────────────────────────────────────────────────────
@@ -297,6 +297,50 @@ function HighlightedLine({ line, lang }: { line: string; lang: string }) {
   );
 }
 
+// ── Lang → file extension map ────────────────────────────────────────────────────────────────
+const LANG_EXT: Record<string, string> = {
+  bash:     "sh",
+  nginx:    "conf",
+  python:   "py",
+  docker:   "Dockerfile",
+  markdown: "md",
+  html:     "html",
+  sql:      "sql",
+};
+
+function getDownloadFilename(step: StepPayload): string {
+  // If the step has a file path, derive the name from it
+  if (step.file) {
+    const base = step.file.split("/").pop() || step.file;
+    // If it already has an extension, use as-is
+    if (base.includes(".") || base === "Dockerfile") return base;
+    // Otherwise append the lang extension
+    const ext = LANG_EXT[step.lang || ""] || "txt";
+    return `${base}.${ext}`;
+  }
+  const ext = LANG_EXT[step.lang || ""] || "txt";
+  return `step-${step.id}.${ext}`;
+}
+
+// ── Download hook ────────────────────────────────────────────────────────────────
+function useDownloadCode(step: StepPayload) {
+  const download = useCallback(() => {
+    const text = step.lines.join("\n");
+    const filename = getDownloadFilename(step);
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Скачан: ${filename}`, { duration: 2000 });
+  }, [step]);
+  return { download };
+}
+
 // ── Copy hook ────────────────────────────────────────────────────────────────
 function useCopyCode(lines: string[]) {
   const [copied, setCopied] = useState(false);
@@ -329,6 +373,7 @@ function CodeView({
   const file = step.file || "output";
   const visibleCount = compact ? 7 : 999;
   const { copied, copy } = useCopyCode(step.lines);
+  const { download } = useDownloadCode(step);
 
   return (
     <div className="flex flex-col h-full" style={{ background: "oklch(0.115 0.008 265)" }}>
@@ -351,16 +396,24 @@ function CodeView({
           <span className="text-[9px] text-zinc-600 font-mono">{step.tool}</span>
         )}
         {!compact && (
-          <button
-            onClick={copy}
-            title="Копировать код"
-            className={`ml-1 p-1 rounded transition-all duration-150 ${
-              copied
-                ? "text-emerald-400 bg-emerald-400/10"
-                : "text-zinc-600 hover:text-zinc-300 hover:bg-white/8"
-            }`}>
-            {copied ? <Check size={11} /> : <Copy size={11} />}
-          </button>
+          <div className="flex items-center gap-0.5 ml-1">
+            <button
+              onClick={download}
+              title={`Скачать ${getDownloadFilename(step)}`}
+              className="p-1 rounded transition-all duration-150 text-zinc-600 hover:text-zinc-300 hover:bg-white/8">
+              <Download size={11} />
+            </button>
+            <button
+              onClick={copy}
+              title="Копировать код"
+              className={`p-1 rounded transition-all duration-150 ${
+                copied
+                  ? "text-emerald-400 bg-emerald-400/10"
+                  : "text-zinc-600 hover:text-zinc-300 hover:bg-white/8"
+              }`}>
+              {copied ? <Check size={11} /> : <Copy size={11} />}
+            </button>
+          </div>
         )}
       </div>
 
@@ -411,7 +464,7 @@ function CodeView({
   );
 }
 
-// ── Portal overlay copy button (standalone to avoid hook-in-portal issues) ────────────────────────
+// ── Portal overlay action buttons (standalone to avoid hook-in-portal issues) ────────────────────────
 function PortalCopyButton({ lines }: { lines: string[] }) {
   const { copied, copy } = useCopyCode(lines);
   return (
@@ -425,6 +478,19 @@ function PortalCopyButton({ lines }: { lines: string[] }) {
       }`}>
       {copied ? <Check size={11} /> : <Copy size={11} />}
       <span className="font-mono">{copied ? "Скопировано" : "Copy"}</span>
+    </button>
+  );
+}
+
+function PortalDownloadButton({ step }: { step: StepPayload }) {
+  const { download } = useDownloadCode(step);
+  return (
+    <button
+      onClick={download}
+      title={`Скачать ${getDownloadFilename(step)}`}
+      className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all duration-150 text-zinc-500 hover:text-zinc-300 hover:bg-white/8">
+      <Download size={11} />
+      <span className="font-mono">{getDownloadFilename(step)}</span>
     </button>
   );
 }
@@ -514,6 +580,7 @@ export default function LiveCodePreview({
 
   // ── Inline expanded (right panel tab) ──
   const { copied: expandedCopied, copy: expandedCopy } = useCopyCode(activeStep.lines);
+  const { download: expandedDownload } = useDownloadCode(activeStep);
 
   if (expanded) {
     return (
@@ -527,17 +594,26 @@ export default function LiveCodePreview({
               <ChevronLeft size={11} /> Назад к Live
             </button>
           )}
-          <button
-            onClick={expandedCopy}
-            title="Копировать код"
-            className={`flex items-center gap-1 px-3 py-1.5 text-[10px] transition-all duration-150 ${
-              expandedCopied
-                ? "text-emerald-400"
-                : "text-zinc-500 hover:text-zinc-300"
-            }`}>
-            {expandedCopied ? <Check size={11} /> : <Copy size={11} />}
-            <span>{expandedCopied ? "Скопировано" : "Копировать"}</span>
-          </button>
+          <div className="flex items-center gap-0.5 pr-1">
+            <button
+              onClick={expandedDownload}
+              title={`Скачать ${getDownloadFilename(activeStep)}`}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors">
+              <Download size={11} />
+              <span>{getDownloadFilename(activeStep)}</span>
+            </button>
+            <button
+              onClick={expandedCopy}
+              title="Копировать код"
+              className={`flex items-center gap-1 px-2.5 py-1.5 text-[10px] transition-all duration-150 ${
+                expandedCopied
+                  ? "text-emerald-400"
+                  : "text-zinc-500 hover:text-zinc-300"
+              }`}>
+              {expandedCopied ? <Check size={11} /> : <Copy size={11} />}
+              <span>{expandedCopied ? "Скопировано" : "Копировать"}</span>
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-hidden">
           <CodeView step={activeStep} visibleLines={visibleLines} lineIdx={lineIdx}
@@ -603,8 +679,11 @@ export default function LiveCodePreview({
               <div className="flex items-center gap-1.5">
                 {isStreaming && <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /><span className="text-[9px] text-emerald-400 font-mono tracking-wide">LIVE</span></>}
               </div>
-              {/* Copy button in portal overlay */}
-              <PortalCopyButton lines={activeStep.lines} />
+              {/* Download + Copy buttons in portal overlay */}
+              <div className="flex items-center gap-0.5">
+                <PortalDownloadButton step={activeStep} />
+                <PortalCopyButton lines={activeStep.lines} />
+              </div>
               {onClose && (
                 <button onClick={onClose} className="p-0.5 rounded hover:bg-white/10 text-zinc-500 hover:text-zinc-300 ml-1">
                   <X size={11} />
