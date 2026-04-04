@@ -1,7 +1,8 @@
 // === MAIN LAYOUT — Three-column resizable layout ===
 // Design: Refined Dark SaaS — left nav, center chat, right inspector
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { useApp } from "@/contexts/AppContext";
+import { toast } from "sonner";
 import LeftPanel from "@/components/LeftPanel";
 import ChatPanel from "@/components/ChatPanel";
 import RightPanel from "@/components/RightPanel";
@@ -60,6 +61,53 @@ export default function MainLayout() {
   }, [state.rightPanelWidth, dispatch]);
 
   const isFullView = ["dog-racing", "dashboard", "settings", "admin", "playbooks", "schedule"].includes(state.activeView);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const SHORTCUTS: Record<string, { view: string; label: string }> = {
+      d: { view: "dashboard",  label: "Дашборды" },
+      p: { view: "playbooks",  label: "Плейбуки" },
+      u: { view: "admin",      label: "Пользователи" },
+      r: { view: "schedule",   label: "Расписание" },
+      g: { view: "dog-racing", label: "Dog Racing" },
+    };
+
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      if (e.metaKey || e.ctrlKey) {
+        const shortcut = SHORTCUTS[e.key.toLowerCase()];
+        if (shortcut) {
+          e.preventDefault();
+          dispatch({ type: "SET_ACTIVE_VIEW", view: shortcut.view as any });
+          toast.success(`→ ${shortcut.label}`, { duration: 1500 });
+          return;
+        }
+        // Cmd+B — toggle left panel
+        if (e.key === "b") {
+          e.preventDefault();
+          dispatch({ type: "TOGGLE_LEFT_PANEL" });
+          return;
+        }
+        // Cmd+, — settings
+        if (e.key === ",") {
+          e.preventDefault();
+          dispatch({ type: "SET_ACTIVE_VIEW", view: "settings" });
+          toast.success("→ Настройки", { duration: 1500 });
+          return;
+        }
+      }
+
+      // Escape — back to chat from any full view
+      if (e.key === "Escape" && isFullView) {
+        dispatch({ type: "SET_ACTIVE_VIEW", view: "chat" });
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [dispatch, isFullView]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
