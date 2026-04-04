@@ -1299,18 +1299,55 @@ function InputCard({
                   const m = MODELS.find(x => x.id === mid);
                   if (!m) return null;
                   return (
-                    <div key={mid} className="relative group">
-                      <div className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 border border-primary/20 cursor-default"
-                        title={m.name}>
-                        <span style={{ color: m.color }}>{m.icon}</span>
-                        <span className="text-foreground/70">{m.name.split(" ").slice(-1)[0]}</span>
-                        <button
-                          onClick={() => setCollectiveModelIds(prev => prev.filter(id => id !== mid))}
-                          className="ml-0.5 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all text-muted-foreground">
-                          <X size={8} />
-                        </button>
+                    <HoverCard key={mid} openDelay={300} closeDelay={100}>
+                      <div className="relative group">
+                        <HoverCardTrigger asChild>
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-primary/10 border border-primary/20 cursor-default">
+                            <span style={{ color: m.color }}>{m.icon}</span>
+                            <span className="text-foreground/70">{m.name.split(" ").slice(-1)[0]}</span>
+                            <button
+                              onClick={() => setCollectiveModelIds(prev => prev.filter(id => id !== mid))}
+                              className="ml-0.5 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all text-muted-foreground">
+                              <X size={8} />
+                            </button>
+                          </div>
+                        </HoverCardTrigger>
+                        <HoverCardContent side="top" align="start" className="w-60 p-0 overflow-hidden">
+                          <div className="px-3 py-2.5 flex items-center gap-2 border-b border-border/50 bg-accent/20">
+                            <span className="text-[16px]" style={{ color: m.color }}>{m.icon}</span>
+                            <div>
+                              <div className="text-[12px] font-semibold text-foreground">{m.name}</div>
+                              <div className="text-[10px] text-muted-foreground">{m.provider}</div>
+                            </div>
+                          </div>
+                          {m.superpower && (
+                            <div className="px-3 py-2 text-[11px] text-muted-foreground border-b border-border/50">
+                              ⚡ {m.superpower}
+                            </div>
+                          )}
+                          <div className="px-3 py-2 grid grid-cols-3 gap-2">
+                            <div className="text-center">
+                              <div className="text-[10px] text-muted-foreground/60 mb-0.5">Стоимость</div>
+                              <div className="text-[11px] font-medium text-foreground">
+                                {m.isFree ? <span className="text-emerald-400">✓ Free</span> : `$${m.costIn}/$${m.costOut}`}
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-[10px] text-muted-foreground/60 mb-0.5">SWE</div>
+                              <div className="text-[11px] font-medium text-foreground">
+                                {m.swe != null ? `${m.swe}%` : <span className="text-muted-foreground/40">—</span>}
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-[10px] text-muted-foreground/60 mb-0.5">Контекст</div>
+                              <div className="text-[11px] font-medium text-foreground">
+                                {m.context != null ? `${m.context}K` : <span className="text-muted-foreground/40">∞</span>}
+                              </div>
+                            </div>
+                          </div>
+                        </HoverCardContent>
                       </div>
-                    </div>
+                    </HoverCard>
                   );
                 })}
                 {/* Add model to collective */}
@@ -1344,23 +1381,72 @@ function InputCard({
                 )}
                 {/* Synth model picker */}
                 <div className="relative">
-                  {collectiveSynthModel ? (
-                    <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 group">
-                      <span className="text-[10px]" style={{ color: MODELS.find(m => m.id === collectiveSynthModel)?.color }}>{MODELS.find(m => m.id === collectiveSynthModel)?.icon}</span>
-                      <span className="text-[10px] text-amber-400 font-medium">{MODELS.find(m => m.id === collectiveSynthModel)?.name}</span>
-                      <span className="text-[9px] text-amber-400/60">синтез</span>
-                      <button
-                        onClick={() => setShowSynthPicker(v => !v)}
-                        className="ml-0.5 text-[9px] text-amber-400/50 hover:text-amber-400 transition-colors">
-                        ✎
-                      </button>
-                      <button
-                        onClick={() => setCollectiveSynthModel("")}
-                        className="opacity-0 group-hover:opacity-100 ml-0.5 hover:text-red-400 transition-all text-muted-foreground">
-                        <X size={8} />
-                      </button>
-                    </div>
-                  ) : (
+                  {collectiveSynthModel ? (() => {
+                    const sm = MODELS.find(m => m.id === collectiveSynthModel);
+                    return (
+                      <HoverCard openDelay={300} closeDelay={100}>
+                        <HoverCardTrigger asChild>
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 group cursor-default">
+                            <span className="text-[10px]" style={{ color: sm?.color }}>{sm?.icon}</span>
+                            <span className="text-[10px] text-amber-400 font-medium">{sm?.name}</span>
+                            <span className="text-[9px] text-amber-400/60">синтез</span>
+                            <button
+                              onClick={() => setShowSynthPicker(v => !v)}
+                              className="ml-0.5 text-[9px] text-amber-400/50 hover:text-amber-400 transition-colors">
+                              ✎
+                            </button>
+                            <button
+                              onClick={() => setCollectiveSynthModel("")}
+                              className="opacity-0 group-hover:opacity-100 ml-0.5 hover:text-red-400 transition-all text-muted-foreground">
+                              <X size={8} />
+                            </button>
+                          </div>
+                        </HoverCardTrigger>
+                        {sm && (
+                          <HoverCardContent side="top" align="start" className="w-64 p-0 overflow-hidden">
+                            <div className="px-3 py-2.5 flex items-center gap-2 border-b border-border/50 bg-amber-500/10">
+                              <span className="text-[16px]" style={{ color: sm.color }}>{sm.icon}</span>
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[12px] font-semibold text-foreground">{sm.name}</span>
+                                  <span className="text-[9px] bg-amber-500/20 text-amber-400 px-1 rounded">синтезатор</span>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">{sm.provider}</div>
+                              </div>
+                            </div>
+                            <div className="px-3 py-2 text-[11px] text-muted-foreground border-b border-border/50">
+                              Консолидирует ответы всех агентов и вырабатывает единый итоговый ответ на основе коллективных дебатов.
+                            </div>
+                            {sm.superpower && (
+                              <div className="px-3 py-1.5 text-[11px] text-muted-foreground border-b border-border/50">
+                                ⚡ {sm.superpower}
+                              </div>
+                            )}
+                            <div className="px-3 py-2 grid grid-cols-3 gap-2">
+                              <div className="text-center">
+                                <div className="text-[10px] text-muted-foreground/60 mb-0.5">Стоимость</div>
+                                <div className="text-[11px] font-medium text-foreground">
+                                  {sm.isFree ? <span className="text-emerald-400">✓ Free</span> : `$${sm.costIn}/$${sm.costOut}`}
+                                </div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-[10px] text-muted-foreground/60 mb-0.5">SWE</div>
+                                <div className="text-[11px] font-medium text-foreground">
+                                  {sm.swe != null ? `${sm.swe}%` : <span className="text-muted-foreground/40">—</span>}
+                                </div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-[10px] text-muted-foreground/60 mb-0.5">Контекст</div>
+                                <div className="text-[11px] font-medium text-foreground">
+                                  {sm.context != null ? `${sm.context}K` : <span className="text-muted-foreground/40">∞</span>}
+                                </div>
+                              </div>
+                            </div>
+                          </HoverCardContent>
+                        )}
+                      </HoverCard>
+                    );
+                  })() : (
                     <button
                       onClick={() => setShowSynthPicker(v => !v)}
                       className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] text-amber-400/50 hover:text-amber-400 hover:bg-amber-500/10 border border-dashed border-amber-500/30 transition-colors">
