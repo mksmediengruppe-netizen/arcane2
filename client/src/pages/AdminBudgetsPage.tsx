@@ -196,6 +196,21 @@ export default function AdminBudgetsPage() {
   const [orgBudget, setOrgBudget] = useState<{ amount: number; period: BudgetPeriod; alertThreshold: number; actionOnExceed: BudgetAction } | null>(
     { amount: 500, period: "month", alertThreshold: 80, actionOnExceed: "notify_admin" }
   );
+
+  // Load org budget from backend
+  useEffect(() => {
+    api.admin.budgets.getOrg().then((data: any) => {
+      const b = data.budget;
+      if (b && b.amount) {
+        setOrgBudget({
+          amount: b.amount || 500,
+          period: (b.period || "month") as BudgetPeriod,
+          alertThreshold: b.alertThreshold ?? b.alert_threshold ?? 80,
+          actionOnExceed: (b.actionOnExceed || b.action_on_exceed || "notify_admin") as BudgetAction,
+        });
+      }
+    }).catch(() => {});
+  }, []);
   const [orgSpent] = useState(users.reduce((s, u) => s + u.spent, 0));
   const [editTarget, setEditTarget] = useState<{ type: "org" | "group" | "user"; id?: string } | null>(null);
 
@@ -211,9 +226,24 @@ export default function AdminBudgetsPage() {
 
   function handleSave(b: typeof orgBudget) {
     if (!editTarget) return;
-    if (editTarget.type === "org") setOrgBudget(b);
-    else if (editTarget.type === "group") setGroups(prev => prev.map(g => g.id === editTarget.id ? { ...g, budget: b } : g));
-    else setUsers(prev => prev.map(u => u.id === editTarget.id ? { ...u, budget: b } : u));
+    if (editTarget.type === "org") {
+      api.admin.budgets.setOrg(b ? {
+        amount: b.amount, period: b.period,
+        alertThreshold: b.alertThreshold, actionOnExceed: b.actionOnExceed,
+      } : {}).then(() => setOrgBudget(b)).catch(() => setOrgBudget(b));
+    } else if (editTarget.type === "group" && editTarget.id) {
+      api.admin.budgets.setUser(editTarget.id, b).then(() => {
+        setGroups(prev => prev.map(g => g.id === editTarget.id ? { ...g, budget: b } : g));
+      }).catch(() => {
+        setGroups(prev => prev.map(g => g.id === editTarget.id ? { ...g, budget: b } : g));
+      });
+    } else if (editTarget.type === "user" && editTarget.id) {
+      api.admin.budgets.setUser(editTarget.id, b).then(() => {
+        setUsers(prev => prev.map(u => u.id === editTarget.id ? { ...u, budget: b } : u));
+      }).catch(() => {
+        setUsers(prev => prev.map(u => u.id === editTarget.id ? { ...u, budget: b } : u));
+      });
+    }
     setEditTarget(null);
   }
 

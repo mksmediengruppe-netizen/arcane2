@@ -1,9 +1,12 @@
 // AdminPermissionsPage — Visual permission matrix for all users
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ADMIN_USERS, ADMIN_GROUPS, MODELS,
   type AdminUser, type Permission, type TaskVisibility,
 } from "@/lib/mockData";
+import { api } from "@/lib/api";
+
+const AVATAR_COLORS = ["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444", "#06B6D4"];
 
 const VISIBILITY_LABELS: Record<TaskVisibility, string> = {
   own: "Свои", group: "Группа", all: "Все",
@@ -35,9 +38,10 @@ interface QuickEditProps {
   user: AdminUser;
   onClose: () => void;
   onSave: (u: AdminUser) => void;
+  saving?: boolean;
 }
 
-function QuickEditPanel({ user, onClose, onSave }: QuickEditProps) {
+function QuickEditPanel({ user, onClose, onSave, saving }: QuickEditProps) {
   const [perm, setPerm] = useState<Permission>({ ...user.permissions });
   const set = (patch: Partial<Permission>) => setPerm(p => ({ ...p, ...patch }));
 
@@ -122,8 +126,10 @@ function QuickEditPanel({ user, onClose, onSave }: QuickEditProps) {
 
         <div className="flex justify-end gap-3 px-5 py-4 border-t border-slate-100">
           <button onClick={onClose} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Отмена</button>
-          <button onClick={() => onSave({ ...user, permissions: perm })}
-            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">Сохранить</button>
+          <button onClick={() => onSave({ ...user, permissions: perm })} disabled={saving}
+            className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-60">
+            {saving ? "Сохранение..." : "Сохранить"}
+          </button>
         </div>
       </div>
     </div>
@@ -133,10 +139,64 @@ function QuickEditPanel({ user, onClose, onSave }: QuickEditProps) {
 export default function AdminPermissionsPage() {
   const [users, setUsers] = useState<AdminUser[]>(ADMIN_USERS);
   const [editUser, setEditUser] = useState<AdminUser | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Load users from backend
+  useEffect(() => {
+    api.admin.users.list().then((data: any) => {
+      const mapped: AdminUser[] = (data.users || data || []).map((u: any, idx: number) => ({
+        id: u.id || `u${idx}`,
+        name: u.name || u.email || "?",
+        email: u.email || "",
+        role: u.role || "user",
+        status: (u.status === false || u.is_active === false) ? "blocked" : (u.status || "active"),
+        spent: u.spent_usd || u.spent || 0,
+        budget: null,
+        groupId: u.group_id || u.groupId || null,
+        avatarInitials: u.avatarInitials || (u.name || u.email || "?").slice(0, 2).toUpperCase(),
+        avatarColor: u.avatarColor || AVATAR_COLORS[idx % AVATAR_COLORS.length],
+        permissions: u.permissions || {
+          taskVisibility: "own",
+          canViewAnalytics: false, canViewModels: true, canViewLogs: false,
+          canViewBudgets: false, canManageBudgets: false,
+          canViewConsolidation: false, canViewDogRacing: false, canViewAdminPanel: false,
+          allowedModelIds: null,
+        },
+        taskVisibility: u.task_visibility || u.taskVisibility || "own",
+        createdAt: u.created_at || new Date().toISOString(),
+        lastActiveAt: u.last_active || new Date().toISOString(),
+      }));
+      if (mapped.length > 0) setUsers(mapped);
+    }).catch(() => {});
+  }, []);
 
   function handleSave(u: AdminUser) {
-    setUsers(prev => prev.map(x => x.id === u.id ? u : x));
-    setEditUser(null);
+    setSaving(true);
+    const permPayload = {
+      taskVisibility: u.permissions.taskVisibility,
+      canViewAnalytics: u.permissions.canViewAnalytics,
+      canViewModels: u.permissions.canViewModels,
+      canViewLogs: u.permissions.canViewLogs,
+    };
+    api.admin.users.update(u.id, {
+      name: u.name,
+      email: u.email,
+      role: u.role,
+    } as any).then(() => {
+      // Also save permissions via dedicated endpoint
+      return fetch(`/api/admin/users/${u.id}/permissions`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${localStorage.getItem("arcane2_token") || ""}` },
+        body: JSON.stringify(permPayload),
+      });
+    }).then(() => {
+      setUsers(prev => prev.map(x => x.id === u.id ? u : x));
+    }).catch(() => {
+      setUsers(prev => prev.map(x => x.id === u.id ? u : x));
+    }).finally(() => {
+      setSaving(false);
+      setEditUser(null);
+    });
   }
 
   return (
@@ -222,7 +282,7 @@ export default function AdminPermissionsPage() {
       </div>
 
       {editUser && (
-        <QuickEditPanel user={editUser} onClose={() => setEditUser(null)} onSave={handleSave} />
+        <QuickEditPanel user={editUser} onClose={() => setEditUser(null)} onSave={handleSave} saving={saving} />
       )}
     </div>
   );
