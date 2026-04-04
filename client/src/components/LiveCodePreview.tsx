@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X, FileCode, Terminal, FileText, Globe, Brain, ChevronLeft, Copy, Check, Download } from "lucide-react";
+import { X, FileCode, Terminal, FileText, Globe, Brain, ChevronLeft, Copy, Check, Download, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 // ── Step payload type ─────────────────────────────────────────────────────────
@@ -341,6 +341,21 @@ function useDownloadCode(step: StepPayload) {
   return { download };
 }
 
+// ── HTML preview hook ────────────────────────────────────────────────────────────────
+function useHtmlPreview(step: StepPayload) {
+  const isHtml = (step.lang || "") === "html";
+  const preview = useCallback(() => {
+    const html = step.lines.join("\n");
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener");
+    // Revoke after a short delay to allow the new tab to load
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    toast.success("Открыт превью HTML", { duration: 1800 });
+  }, [step]);
+  return { isHtml, preview };
+}
+
 // ── Copy hook ────────────────────────────────────────────────────────────────
 function useCopyCode(lines: string[]) {
   const [copied, setCopied] = useState(false);
@@ -374,6 +389,7 @@ function CodeView({
   const visibleCount = compact ? 7 : 999;
   const { copied, copy } = useCopyCode(step.lines);
   const { download } = useDownloadCode(step);
+  const { isHtml, preview } = useHtmlPreview(step);
 
   return (
     <div className="flex flex-col h-full" style={{ background: "oklch(0.115 0.008 265)" }}>
@@ -397,6 +413,14 @@ function CodeView({
         )}
         {!compact && (
           <div className="flex items-center gap-0.5 ml-1">
+            {isHtml && (
+              <button
+                onClick={preview}
+                title="Открыть HTML в новой вкладке"
+                className="p-1 rounded transition-all duration-150 text-sky-500 hover:text-sky-300 hover:bg-sky-500/10">
+                <ExternalLink size={11} />
+              </button>
+            )}
             <button
               onClick={download}
               title={`Скачать ${getDownloadFilename(step)}`}
@@ -491,6 +515,20 @@ function PortalDownloadButton({ step }: { step: StepPayload }) {
       className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all duration-150 text-zinc-500 hover:text-zinc-300 hover:bg-white/8">
       <Download size={11} />
       <span className="font-mono">{getDownloadFilename(step)}</span>
+    </button>
+  );
+}
+
+function PortalHtmlPreviewButton({ step }: { step: StepPayload }) {
+  const { isHtml, preview } = useHtmlPreview(step);
+  if (!isHtml) return null;
+  return (
+    <button
+      onClick={preview}
+      title="Открыть HTML в новой вкладке"
+      className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all duration-150 text-sky-400 hover:text-sky-200 hover:bg-sky-500/10">
+      <ExternalLink size={11} />
+      <span className="font-mono">Preview</span>
     </button>
   );
 }
@@ -595,6 +633,22 @@ export default function LiveCodePreview({
             </button>
           )}
           <div className="flex items-center gap-0.5 pr-1">
+            {(activeStep.lang || "") === "html" && (
+              <button
+                onClick={() => {
+                  const html = activeStep.lines.join("\n");
+                  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+                  const url = URL.createObjectURL(blob);
+                  window.open(url, "_blank", "noopener");
+                  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+                  toast.success("Открыт превью HTML", { duration: 1800 });
+                }}
+                title="Открыть HTML в новой вкладке"
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] text-sky-400 hover:text-sky-200 transition-colors">
+                <ExternalLink size={11} />
+                <span>Preview</span>
+              </button>
+            )}
             <button
               onClick={expandedDownload}
               title={`Скачать ${getDownloadFilename(activeStep)}`}
@@ -679,8 +733,9 @@ export default function LiveCodePreview({
               <div className="flex items-center gap-1.5">
                 {isStreaming && <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /><span className="text-[9px] text-emerald-400 font-mono tracking-wide">LIVE</span></>}
               </div>
-              {/* Download + Copy buttons in portal overlay */}
+              {/* HTML Preview + Download + Copy buttons in portal overlay */}
               <div className="flex items-center gap-0.5">
+                <PortalHtmlPreviewButton step={activeStep} />
                 <PortalDownloadButton step={activeStep} />
                 <PortalCopyButton lines={activeStep.lines} />
               </div>
