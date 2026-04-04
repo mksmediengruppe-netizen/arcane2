@@ -204,6 +204,7 @@ export default function AnalyticsPage() {
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("all");
   const [showProjectDrop, setShowProjectDrop] = useState(false);
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([]);
 
   const allTasks = useMemo(() => enrichedTasks(), []);
 
@@ -224,22 +225,28 @@ export default function AnalyticsPage() {
       if (selectedStatuses.length > 0 && !selectedStatuses.includes(t.status)) return false;
       // Project filter
       if (selectedProject !== "all" && t.projectId !== selectedProject) return false;
+      // Agent filter — task must include ALL selected agents
+      if (selectedAgents.length > 0 && !selectedAgents.every(a => t.resolvedAgents.includes(a))) return false;
       return true;
     });
-  }, [allTasks, dateRange, selectedStatuses, selectedProject]);
+  }, [allTasks, dateRange, selectedStatuses, selectedProject, selectedAgents]);
 
   const toggleStatus = (s: string) =>
     setSelectedStatuses(prev => prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]);
+
+  const toggleAgent = (a: string) =>
+    setSelectedAgents(prev => prev.includes(a) ? prev.filter(x => x !== a) : [...prev, a]);
 
   const clearAllFilters = () => {
     setDatePreset("30d");
     setSelectedStatuses([]);
     setSelectedProject("all");
+    setSelectedAgents([]);
     setCustomFrom("");
     setCustomTo("");
   };
 
-  const hasActiveFilters = selectedStatuses.length > 0 || selectedProject !== "all" || datePreset !== "30d";
+  const hasActiveFilters = selectedStatuses.length > 0 || selectedProject !== "all" || datePreset !== "30d" || selectedAgents.length > 0;
 
   // ── Derived chart data ───────────────────────────────────────────────────
   const agentPopularity = useMemo(() => {
@@ -448,6 +455,30 @@ export default function AnalyticsPage() {
             )}
           </div>
 
+          {/* Agent filter */}
+          <div className="w-full flex items-center gap-1.5 flex-wrap pt-1 border-t border-zinc-800/60">
+            <div className="flex items-center gap-1.5 mr-1">
+              <span className="text-[10px] text-zinc-600 uppercase tracking-wider">Агент</span>
+            </div>
+            {Object.entries(AGENT_META).map(([id, meta]) => (
+              <FilterChip
+                key={id}
+                label={`${meta.emoji} ${meta.label}`}
+                color={meta.color}
+                active={selectedAgents.includes(id)}
+                onClick={() => toggleAgent(id)}
+              />
+            ))}
+            {selectedAgents.length > 0 && (
+              <button
+                onClick={() => setSelectedAgents([])}
+                className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors ml-1 flex items-center gap-0.5"
+              >
+                <X size={9} /> Сбросить агентов
+              </button>
+            )}
+          </div>
+
           {/* Active filter badges */}
           {hasActiveFilters && (
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -456,6 +487,13 @@ export default function AnalyticsPage() {
                   key={s}
                   label={STATUS_META[s]?.label || s}
                   onRemove={() => toggleStatus(s)}
+                />
+              ))}
+              {selectedAgents.map(a => (
+                <ActiveFilterBadge
+                  key={a}
+                  label={`${AGENT_META[a]?.emoji || ""} ${AGENT_META[a]?.label || a}`}
+                  onRemove={() => toggleAgent(a)}
                 />
               ))}
               {selectedProject !== "all" && (
