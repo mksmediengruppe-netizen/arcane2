@@ -1,8 +1,9 @@
 // === SETTINGS — API Keys, Model defaults, User management ===
 import { useState } from "react";
 import { MOCK_USERS } from "@/lib/mockData";
-import { Eye, EyeOff, Save, Plus, Trash2, Shield, User, UserCheck, Key, Settings2, Bell } from "lucide-react";
+import { Eye, EyeOff, Save, Plus, Trash2, Shield, User, UserCheck, Key, Settings2, Bell, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { useApp } from "@/contexts/AppContext";
 
 type SettingsTab = "api" | "models" | "users" | "notifications" | "general";
 
@@ -193,6 +194,38 @@ function UsersSection() {
   );
 }
 
+function UsersRedirectCard() {
+  const { dispatch } = useApp();
+  const sections = [
+    { icon: "👥", title: "Пользователи", desc: "Список всех пользователей, блокировка, бюджеты", view: "admin-users" },
+    { icon: "🏷️", title: "Группы", desc: "Создание групп и назначение участников", view: "admin-groups" },
+    { icon: "🔐", title: "Права доступа", desc: "Матрица разрешений по ролям и группам", view: "admin-permissions" },
+    { icon: "💰", title: "Бюджеты", desc: "Лимиты расходов на пользователей и группы", view: "admin-budgets" },
+  ];
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 mb-2 p-3 bg-primary/5 border border-primary/20 rounded-lg">
+        <ExternalLink size={13} className="text-primary flex-shrink-0" />
+        <p className="text-[12px] text-muted-foreground">
+          Управление пользователями вынесено в отдельный раздел администрирования для удобства.
+        </p>
+      </div>
+      {sections.map(s => (
+        <button key={s.view}
+          onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", view: s.view as any })}
+          className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-xl hover:border-primary/40 hover:bg-primary/5 transition-colors text-left group">
+          <span className="text-[20px]">{s.icon}</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-medium text-foreground">{s.title}</div>
+            <div className="text-[11px] text-muted-foreground">{s.desc}</div>
+          </div>
+          <ExternalLink size={13} className="text-muted-foreground/40 group-hover:text-primary transition-colors flex-shrink-0" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function Settings() {
   const [tab, setTab] = useState<SettingsTab>("api");
 
@@ -230,8 +263,8 @@ export default function Settings() {
         {tab === "users" && (
           <div>
             <h2 className="text-[15px] font-semibold text-foreground mb-1">Пользователи</h2>
-            <p className="text-[12px] text-muted-foreground mb-5">Управление доступом и бюджетами</p>
-            <UsersSection />
+            <p className="text-[12px] text-muted-foreground mb-5">Управление доступом, группами и бюджетами</p>
+            <UsersRedirectCard />
           </div>
         )}
         {tab === "models" && (

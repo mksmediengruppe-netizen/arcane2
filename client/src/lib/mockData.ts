@@ -148,7 +148,7 @@ export const MOCK_PROJECTS: Project[] = [
     tasks: [
       {
         id: "t1", name: "Установка Bitrix на сервер", status: "done", pinned: true,
-        cost: 1.24, duration: "4m 12s", model: "claude-sonnet-4.6", createdAt: "2026-04-01",
+        cost: 1.24, budget: 5.00, duration: "4m 12s", model: "claude-sonnet-4.6", createdAt: "2026-04-01",
         messages: [
           { id: "m1", role: "user", content: "Установи Bitrix CMS на сервер Ubuntu 22.04. Нужен полный процесс: nginx, php-fpm, mysql, настройка прав.", timestamp: "10:00" },
           {
@@ -161,7 +161,7 @@ export const MOCK_PROJECTS: Project[] = [
       },
       {
         id: "t2", name: "Настройка SSL сертификата", status: "done",
-        cost: 0.38, duration: "2m 45s", model: "claude-haiku-4.5", createdAt: "2026-04-01",
+        cost: 0.38, budget: 2.00, duration: "2m 45s", model: "claude-haiku-4.5", createdAt: "2026-04-01",
         messages: [
           { id: "m3", role: "user", content: "Настрой Let's Encrypt SSL для домена example.com на nginx.", timestamp: "11:00" },
           { id: "m4", role: "assistant", model: "claude-haiku-4.5", content: "## Настройка Let's Encrypt SSL\n\n```bash\napt install -y certbot python3-certbot-nginx\ncertbot --nginx -d example.com -d www.example.com\n```\n\nАвтообновление уже настроено через systemd timer. Сертификат действителен 90 дней.\n\n✅ HTTPS активирован, HTTP автоматически редиректит на HTTPS.", timestamp: "11:02", tokens: { in: 420, out: 1100 }, cost: 0.38 },
@@ -169,7 +169,7 @@ export const MOCK_PROJECTS: Project[] = [
       },
       {
         id: "t3", name: "Оптимизация скорости загрузки", status: "error",
-        cost: 0.12, duration: "1m 03s", model: "gpt-5.4-mini", createdAt: "2026-04-02",
+        cost: 0.12, budget: 1.00, duration: "1m 03s", model: "gpt-5.4-mini", createdAt: "2026-04-02",
         messages: [
           { id: "m5", role: "user", content: "Оптимизируй скорость загрузки сайта. Lighthouse показывает 45 баллов.", timestamp: "14:00" },
           { id: "m6", role: "assistant", model: "gpt-5.4-mini", content: "Анализирую проблемы производительности...\n\n❌ **Ошибка:** Не удалось получить доступ к файловой системе сервера. Проверьте SSH-ключи и права доступа.", timestamp: "14:01", tokens: { in: 380, out: 290 }, cost: 0.12 },
@@ -177,7 +177,7 @@ export const MOCK_PROJECTS: Project[] = [
       },
       {
         id: "t4", name: "Настройка резервного копирования", status: "warning",
-        cost: 0.54, duration: "3m 18s", model: "deepseek-v3.2", createdAt: "2026-04-02",
+        cost: 0.54, budget: 3.00, duration: "3m 18s", model: "deepseek-v3.2", createdAt: "2026-04-02",
         messages: [
           { id: "m7", role: "user", content: "Настрой автоматическое резервное копирование базы данных и файлов на S3.", timestamp: "15:00" },
           { id: "m8", role: "assistant", model: "deepseek-v3.2", content: "## Настройка бэкапов на S3\n\n⚠️ **Предупреждение:** Ключи AWS не найдены в переменных окружения. Скрипт создан, но требует ввода credentials.\n\n```bash\n#!/bin/bash\n# /etc/cron.daily/backup-bitrix\nmysqldump -u root bitrix | gzip | aws s3 cp - s3://your-bucket/db/$(date +%Y%m%d).sql.gz\ntar -czf - /var/www/bitrix | aws s3 cp - s3://your-bucket/files/$(date +%Y%m%d).tar.gz\n```\n\nДобавьте AWS_ACCESS_KEY_ID и AWS_SECRET_ACCESS_KEY в /etc/environment.", timestamp: "15:03", tokens: { in: 890, out: 2100 }, cost: 0.54 },
@@ -193,7 +193,7 @@ export const MOCK_PROJECTS: Project[] = [
     tasks: [
       {
         id: "t5", name: "Архитектура RAG-системы", status: "done",
-        cost: 2.87, duration: "8m 40s", model: "claude-opus-4.6", createdAt: "2026-04-02",
+        cost: 2.87, budget: 5.00, duration: "8m 40s", model: "claude-opus-4.6", createdAt: "2026-04-02",
         messages: [
           { id: "m9", role: "user", content: "Спроектируй RAG-систему для чат-бота поддержки клиентов. База знаний — 500 PDF документов.", timestamp: "09:00" },
           {
@@ -206,7 +206,7 @@ export const MOCK_PROJECTS: Project[] = [
       },
       {
         id: "t6", name: "Интеграция с Telegram", status: "running",
-        cost: 0.91, duration: "2m 10s (идёт...)", model: "gpt-5.4", createdAt: "2026-04-03",
+        cost: 0.91, budget: 4.00, duration: "2m 10s (идёт...)", model: "gpt-5.4", createdAt: "2026-04-03",
         messages: [
           { id: "m11", role: "user", content: "Напиши Python-код для Telegram-бота с интеграцией нашей RAG-системы.", timestamp: "10:30" },
           { id: "m12", role: "assistant", model: "gpt-5.4", content: "Создаю Telegram-бота на python-telegram-bot v20 с async-архитектурой...\n\n```python\nfrom telegram import Update\nfrom telegram.ext import Application, MessageHandler, filters\n\nasync def handle_message(update: Update, context):\n    query = update.message.text\n    # RAG pipeline\n    docs = retriever.get_relevant_documents(query)\n    context_text = \"\\n\".join([d.page_content for d in docs[:3]])\n    response = await llm.agenerate(f\"{context_text}\\n\\nВопрос: {query}\")\n    await update.message.reply_text(response)\n```\n\n⏳ Продолжаю генерацию полного кода...", timestamp: "10:32", tokens: { in: 1560, out: 2400 }, cost: 0.91 },
@@ -222,7 +222,7 @@ export const MOCK_PROJECTS: Project[] = [
     tasks: [
       {
         id: "t7", name: "Дашборд в Metabase", status: "done",
-        cost: 0.67, duration: "5m 22s", model: "gemini-3.1-pro", createdAt: "2026-04-01",
+        cost: 0.67, budget: 2.50, duration: "5m 22s", model: "gemini-3.1-pro", createdAt: "2026-04-01",
         messages: [
           { id: "m13", role: "user", content: "Создай SQL-запросы для дашборда продаж в Metabase: выручка по месяцам, топ-10 товаров, конверсия воронки.", timestamp: "13:00" },
           { id: "m14", role: "assistant", model: "gemini-3.1-pro", content: "## SQL-запросы для дашборда продаж\n\n**Выручка по месяцам:**\n```sql\nSELECT DATE_TRUNC('month', created_at) as month,\n       SUM(total_amount) as revenue,\n       COUNT(*) as orders\nFROM orders WHERE status = 'completed'\nGROUP BY 1 ORDER BY 1;\n```\n\n**Топ-10 товаров:**\n```sql\nSELECT p.name, SUM(oi.quantity) as sold, SUM(oi.price * oi.quantity) as revenue\nFROM order_items oi JOIN products p ON p.id = oi.product_id\nGROUP BY p.id, p.name ORDER BY revenue DESC LIMIT 10;\n```\n\n✅ Все 3 запроса готовы к импорту в Metabase.", timestamp: "13:05", tokens: { in: 780, out: 2200 }, cost: 0.67 },

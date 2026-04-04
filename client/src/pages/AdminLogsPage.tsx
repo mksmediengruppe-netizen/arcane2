@@ -37,7 +37,7 @@ const PAGE_SIZE = 20;
 export default function AdminLogsPage() {
   const [search, setSearch] = useState("");
   const [userFilter, setUserFilter] = useState("all");
-
+  const [actionFilter, setActionFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
@@ -45,6 +45,7 @@ export default function AdminLogsPage() {
   const filtered = useMemo(() => {
     return AUDIT_LOGS.filter(log => {
       if (userFilter !== "all" && log.userId !== userFilter) return false;
+      if (actionFilter !== "all" && log.status !== actionFilter) return false;
       if (dateFrom && log.timestamp < dateFrom) return false;
       if (dateTo && log.timestamp > dateTo + "T23:59:59") return false;
       if (search) {
@@ -54,7 +55,7 @@ export default function AdminLogsPage() {
       }
       return true;
     }).sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  }, [search, userFilter, dateFrom, dateTo]);
+  }, [search, userFilter, actionFilter, dateFrom, dateTo]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -83,10 +84,10 @@ export default function AdminLogsPage() {
   }
 
   function resetFilters() {
-    setSearch(""); setUserFilter("all"); setDateFrom(""); setDateTo(""); setPage(1);
+    setSearch(""); setUserFilter("all"); setActionFilter("all"); setDateFrom(""); setDateTo(""); setPage(1);
   }
 
-  const hasFilters = search || userFilter !== "all" || dateFrom || dateTo;
+  const hasFilters = search || userFilter !== "all" || actionFilter !== "all" || dateFrom || dateTo;
 
   return (
     <div className="flex flex-col h-full bg-slate-50">
@@ -114,6 +115,13 @@ export default function AdminLogsPage() {
             {ADMIN_USERS.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
 
+          <select className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={actionFilter} onChange={e => { setActionFilter(e.target.value); setPage(1); }}>
+            <option value="all">Все действия</option>
+            {Object.entries(ACTION_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
 
 
           <div className="flex items-center gap-1.5">
