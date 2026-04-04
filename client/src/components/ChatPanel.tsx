@@ -1355,13 +1355,19 @@ export default function ChatPanel() {
   const [agentModelOverrides, setAgentModelOverrides] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Reset agents when mode changes (except manual/collective which keep user selection)
+  // Reset agents when mode changes
   useEffect(() => {
-    if (chatMode !== "manual" && chatMode !== "collective" && chatMode !== "auto") {
-      setAgentIds(MODE_AGENTS[chatMode] || ["coder"]);
-    }
     if (chatMode === "auto") {
-      setAgentIds([]); // will be auto-assigned on send
+      setAgentIds([]);
+      setAgentModelOverrides({});
+    } else if (chatMode === "collective") {
+      // collective keeps its own model list, no agent chips
+      setAgentIds([]);
+      setAgentModelOverrides({});
+    } else {
+      // all other modes (top, optimum, lite, free, manual, normal) → apply default set
+      setAgentIds(MODE_AGENTS[chatMode] || ["coder"]);
+      setAgentModelOverrides({});
     }
   }, [chatMode]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
