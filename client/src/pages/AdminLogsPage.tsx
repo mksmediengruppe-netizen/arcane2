@@ -37,6 +37,7 @@ const PAGE_SIZE = 20;
 export default function AdminLogsPage() {
   const [search, setSearch] = useState("");
   const [userFilter, setUserFilter] = useState("all");
+  const [groupFilter, setGroupFilter] = useState("all");
   const [actionFilter, setActionFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -45,6 +46,10 @@ export default function AdminLogsPage() {
   const filtered = useMemo(() => {
     return AUDIT_LOGS.filter(log => {
       if (userFilter !== "all" && log.userId !== userFilter) return false;
+      if (groupFilter !== "all") {
+        const user = ADMIN_USERS.find(u => u.id === log.userId);
+        if (user?.groupId !== groupFilter) return false;
+      }
       if (actionFilter !== "all" && log.status !== actionFilter) return false;
       if (dateFrom && log.timestamp < dateFrom) return false;
       if (dateTo && log.timestamp > dateTo + "T23:59:59") return false;
@@ -55,7 +60,7 @@ export default function AdminLogsPage() {
       }
       return true;
     }).sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  }, [search, userFilter, actionFilter, dateFrom, dateTo]);
+  }, [search, userFilter, groupFilter, actionFilter, dateFrom, dateTo]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -84,10 +89,10 @@ export default function AdminLogsPage() {
   }
 
   function resetFilters() {
-    setSearch(""); setUserFilter("all"); setActionFilter("all"); setDateFrom(""); setDateTo(""); setPage(1);
+    setSearch(""); setUserFilter("all"); setGroupFilter("all"); setActionFilter("all"); setDateFrom(""); setDateTo(""); setPage(1);
   }
 
-  const hasFilters = search || userFilter !== "all" || actionFilter !== "all" || dateFrom || dateTo;
+  const hasFilters = search || userFilter !== "all" || groupFilter !== "all" || actionFilter !== "all" || dateFrom || dateTo;
 
   return (
     <div className="flex flex-col h-full bg-slate-50">
@@ -113,6 +118,12 @@ export default function AdminLogsPage() {
             value={userFilter} onChange={e => { setUserFilter(e.target.value); setPage(1); }}>
             <option value="all">Все пользователи</option>
             {ADMIN_USERS.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+
+          <select className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={groupFilter} onChange={e => { setGroupFilter(e.target.value); setPage(1); }}>
+            <option value="all">Все группы</option>
+            {ADMIN_GROUPS.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
 
           <select className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"

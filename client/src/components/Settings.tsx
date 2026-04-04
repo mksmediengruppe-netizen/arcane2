@@ -1,11 +1,11 @@
 // === SETTINGS — API Keys, Model defaults, User management ===
 import { useState } from "react";
 import { MOCK_USERS } from "@/lib/mockData";
-import { Eye, EyeOff, Save, Plus, Trash2, Shield, User, UserCheck, Key, Settings2, Bell, ExternalLink } from "lucide-react";
+import { Eye, EyeOff, Save, Plus, Trash2, Shield, User, UserCheck, Key, Settings2, Bell, ExternalLink, Lock, Smartphone, Globe, LogOut, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "@/contexts/AppContext";
 
-type SettingsTab = "api" | "models" | "users" | "notifications" | "general";
+type SettingsTab = "api" | "models" | "users" | "notifications" | "general" | "security";
 
 const ROLE_LABELS: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   super_admin: { label: "Супер-админ", color: "text-yellow-400", icon: <Shield size={11} /> },
@@ -226,6 +226,136 @@ function UsersRedirectCard() {
   );
 }
 
+const MOCK_SESSIONS = [
+  { id: "s1", device: "Chrome / macOS", ip: "192.168.1.10", location: "Москва, RU", lastActive: "Сейчас", current: true },
+  { id: "s2", device: "Safari / iPhone 15", ip: "10.0.0.45", location: "Москва, RU", lastActive: "2 часа назад", current: false },
+  { id: "s3", device: "Firefox / Windows 11", ip: "77.88.55.60", location: "Санкт-Петербург, RU", lastActive: "Вчера, 18:42", current: false },
+];
+
+function SecuritySection() {
+  const [twoFaEnabled, setTwoFaEnabled] = useState(false);
+  const [sessions, setSessions] = useState(MOCK_SESSIONS);
+  const [ipWhitelist, setIpWhitelist] = useState("192.168.1.0/24\n10.0.0.0/8");
+  const [sessionTimeout, setSessionTimeout] = useState("24");
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-[15px] font-semibold text-foreground mb-1">Безопасность</h2>
+        <p className="text-[12px] text-muted-foreground mb-5">2FA, активные сессии и IP-вайтлист</p>
+      </div>
+
+      {/* 2FA */}
+      <div className="bg-card border border-border rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Smartphone size={15} className="text-primary" />
+            </div>
+            <div>
+              <div className="text-[13px] font-medium text-foreground">Двухфакторная аутентификация (2FA)</div>
+              <div className="text-[11px] text-muted-foreground">Дополнительная защита через TOTP-приложение</div>
+            </div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" checked={twoFaEnabled} onChange={e => {
+              setTwoFaEnabled(e.target.checked);
+              toast.success(e.target.checked ? "2FA включена" : "2FA отключена");
+            }} className="sr-only peer" />
+            <div className="w-9 h-5 bg-muted rounded-full peer peer-checked:bg-primary transition-colors" />
+            <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-4" />
+          </label>
+        </div>
+        {twoFaEnabled && (
+          <div className="mt-3 pt-3 border-t border-border flex items-center gap-2 text-[11px] text-emerald-400">
+            <Shield size={11} /> 2FA активна. Резервные коды: <span className="mono bg-muted px-2 py-0.5 rounded text-foreground">XXXX-XXXX-XXXX</span>
+          </div>
+        )}
+      </div>
+
+      {/* Session timeout */}
+      <div className="bg-card border border-border rounded-xl p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Lock size={15} className="text-primary" />
+          </div>
+          <div>
+            <div className="text-[13px] font-medium text-foreground">Таймаут сессии</div>
+            <div className="text-[11px] text-muted-foreground">Автовыход при бездействии</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <input type="number" value={sessionTimeout} onChange={e => setSessionTimeout(e.target.value)}
+            className="w-20 bg-input border border-border rounded-lg px-3 py-1.5 text-[12px] text-foreground outline-none focus:border-primary/50" />
+          <span className="text-[12px] text-muted-foreground">часов</span>
+          <button onClick={() => toast.success(`Таймаут сессии: ${sessionTimeout}ч`)}
+            className="ml-2 flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary/80 text-primary-foreground rounded-lg text-[11px] transition-colors">
+            <Save size={11} /> Сохранить
+          </button>
+        </div>
+      </div>
+
+      {/* Active sessions */}
+      <div className="bg-card border border-border rounded-xl p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Globe size={15} className="text-primary" />
+          </div>
+          <div>
+            <div className="text-[13px] font-medium text-foreground">Активные сессии</div>
+            <div className="text-[11px] text-muted-foreground">{sessions.length} активных устройства</div>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {sessions.map(s => (
+            <div key={s.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] text-foreground">{s.device}</span>
+                  {s.current && <span className="text-[9px] px-1.5 py-0.5 bg-emerald-400/10 text-emerald-400 rounded-full">Текущая</span>}
+                </div>
+                <div className="text-[10px] text-muted-foreground">{s.ip} • {s.location} • {s.lastActive}</div>
+              </div>
+              {!s.current && (
+                <button onClick={() => { setSessions(prev => prev.filter(x => x.id !== s.id)); toast.success("Сессия завершена"); }}
+                  className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors">
+                  <LogOut size={12} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        <button onClick={() => { setSessions(prev => prev.filter(s => s.current)); toast.success("Все другие сессии завершены"); }}
+          className="mt-3 flex items-center gap-1.5 text-[11px] text-destructive hover:text-destructive/80 transition-colors">
+          <AlertTriangle size={11} /> Завершить все другие сессии
+        </button>
+      </div>
+
+      {/* IP Whitelist */}
+      <div className="bg-card border border-border rounded-xl p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Shield size={15} className="text-primary" />
+          </div>
+          <div>
+            <div className="text-[13px] font-medium text-foreground">IP-вайтлист</div>
+            <div className="text-[11px] text-muted-foreground">Разрешённые IP-адреса (по одному на строке)</div>
+          </div>
+        </div>
+        <textarea value={ipWhitelist} onChange={e => setIpWhitelist(e.target.value)} rows={4}
+          className="w-full bg-input border border-border rounded-lg px-3 py-2 text-[12px] mono text-foreground outline-none focus:border-primary/50 resize-none" />
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-[10px] text-muted-foreground">Оставьте пустым чтобы отключить ограничения</span>
+          <button onClick={() => toast.success("IP-вайтлист сохранён")}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary/80 text-primary-foreground rounded-lg text-[11px] transition-colors">
+            <Save size={11} /> Сохранить
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Settings() {
   const [tab, setTab] = useState<SettingsTab>("api");
 
@@ -235,6 +365,7 @@ export default function Settings() {
     { id: "models",        label: "Модели",        icon: <Settings2 size={13} /> },
     { id: "notifications", label: "Уведомления",   icon: <Bell size={13} /> },
     { id: "general",       label: "Общие",         icon: <Settings2 size={13} /> },
+    { id: "security",      label: "Безопасность",   icon: <Lock size={13} /> },
   ];
 
   return (
@@ -319,6 +450,7 @@ export default function Settings() {
             </div>
           </div>
         )}
+        {tab === "security" && <SecuritySection /> }
         {tab === "general" && (
           <div>
             <h2 className="text-[15px] font-semibold text-foreground mb-1">Общие настройки</h2>

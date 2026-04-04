@@ -38,7 +38,8 @@ export type AppAction =
   | { type: "EDIT_MESSAGE"; projectId: string; taskId: string; messageId: string; content: string }
   | { type: "DUPLICATE_TASK"; projectId: string; taskId: string }
   | { type: "PIN_TASK"; projectId: string; taskId: string }
-  | { type: "UPDATE_TASK_AGENTS"; projectId: string; taskId: string; agentIds: string[]; chatMode: string; collectiveModelIds?: string[]; agentModelOverrides?: Record<string, string> };
+  | { type: "UPDATE_TASK_AGENTS"; projectId: string; taskId: string; agentIds: string[]; chatMode: string; collectiveModelIds?: string[]; agentModelOverrides?: Record<string, string> }
+  | { type: "UPDATE_TASK_BUDGET"; taskId: string; budget: number };
 
 // Read saved theme from localStorage, default to "dark"
 const savedTheme = (typeof window !== "undefined" && (localStorage.getItem("arcane-theme") as "dark" | "light")) || "dark";
@@ -248,6 +249,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           }),
         };
       });
+      return { ...state, projects };
+    }
+    case "UPDATE_TASK_BUDGET": {
+      const projects = state.projects.map(p => ({
+        ...p,
+        tasks: p.tasks.map(t => t.id === action.taskId ? { ...t, budget: action.budget } : t),
+      }));
       return { ...state, projects };
     }
     default: return state;

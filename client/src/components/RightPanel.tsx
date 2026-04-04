@@ -1,6 +1,6 @@
 // Design: Refined Dark SaaS — Right Inspector Panel
 // Tabs: Live, Steps, Thinking, Preview, Terminal, Artifacts, Budget
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { formatCost } from "@/lib/mockData";
 import LiveCodePreview, { ENRICHED_STEPS, StepPayload } from "./LiveCodePreview";
@@ -156,6 +156,24 @@ export default function RightPanel() {
   const taskCost = activeTask?.cost || 0;
   const budgetLimit = activeTask?.budget ?? 5.0;
   const budgetPct = Math.min(100, (taskCost / budgetLimit) * 100);
+  const [editingBudget, setEditingBudget] = useState(false);
+  const [budgetInput, setBudgetInput] = useState("");
+  const budgetInputRef = useRef<HTMLInputElement>(null);
+
+  function startEditBudget() {
+    setBudgetInput(budgetLimit.toFixed(2));
+    setEditingBudget(true);
+    setTimeout(() => budgetInputRef.current?.select(), 50);
+  }
+
+  function saveBudget() {
+    const val = parseFloat(budgetInput);
+    if (!isNaN(val) && val > 0 && activeTask) {
+      dispatch({ type: "UPDATE_TASK_BUDGET", taskId: activeTask.id, budget: val });
+      toast.success(`Лимит обновлён: $${val.toFixed(2)}`);
+    }
+    setEditingBudget(false);
+  }
 
   const previewWidths: Record<PreviewDevice, string> = {
     desktop: "100%",
@@ -526,8 +544,30 @@ export default function RightPanel() {
                 <div className={`h-1.5 rounded-full transition-all ${budgetPct > 80 ? "bg-yellow-400" : "bg-primary"}`}
                   style={{ width: `${budgetPct}%` }} />
               </div>
-              <div className="flex justify-between mt-1">
-                <span className="text-[10px] text-muted-foreground">Лимит: {formatCost(budgetLimit)}</span>
+              <div className="flex justify-between mt-1 items-center">
+                <div className="flex items-center gap-1">
+                  {editingBudget ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-muted-foreground">$</span>
+                      <input
+                        ref={budgetInputRef}
+                        value={budgetInput}
+                        onChange={e => setBudgetInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") saveBudget(); if (e.key === "Escape") setEditingBudget(false); }}
+                        onBlur={saveBudget}
+                        className="w-16 bg-input border border-primary/50 rounded px-1.5 py-0.5 text-[11px] mono text-foreground outline-none"
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      onClick={startEditBudget}
+                      className="text-[10px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 group"
+                      title="Нажмите чтобы изменить">
+                      Лимит: {formatCost(budgetLimit)}
+                      <span className="opacity-0 group-hover:opacity-100 text-[9px] text-primary transition-opacity">✒</span>
+                    </button>
+                  )}
+                </div>
                 <span className="text-[10px] text-muted-foreground">{budgetPct.toFixed(0)}%</span>
               </div>
             </div>
