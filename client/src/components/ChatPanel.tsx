@@ -49,11 +49,58 @@ const AGENT_STEPS_SEQUENCE = [
   { tool: "LLM",        icon: "🧠", action: "Генерирую итоговый отчёт...",                color: "text-purple-400" },
 ];
 
+// Realistic per-step durations (ms) matching AGENT_STEPS_SEQUENCE order
+const STEP_DURATIONS = [800, 1400, 300, 3200, 2100, 1800];
+
+function StepTimer({ startedAt, finalMs }: { startedAt: number | null; finalMs: number | null }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (finalMs !== null) { setElapsed(finalMs); return; }
+    if (startedAt === null) return;
+    const id = setInterval(() => setElapsed(Date.now() - startedAt), 100);
+    return () => clearInterval(id);
+  }, [startedAt, finalMs]);
+  if (startedAt === null && finalMs === null) return null;
+  const secs = (elapsed / 1000).toFixed(1);
+  return (
+    <span className="mono text-[10px] tabular-nums flex-shrink-0 text-muted-foreground/60">
+      {secs}s
+    </span>
+  );
+}
+
 function TaskProgress({ progress }: { progress: number }) {
   const total = AGENT_STEPS_SEQUENCE.length;
   const doneCount = Math.floor(progress * total);
   const activeIdx = doneCount < total ? doneCount : -1;
   const [collapsed, setCollapsed] = useState(false);
+
+  // Track when each step started and its final duration
+  const [stepStartTimes, setStepStartTimes] = useState<(number | null)[]>(() => Array(total).fill(null));
+  const [stepFinalMs, setStepFinalMs] = useState<(number | null)[]>(() => Array(total).fill(null));
+  const prevActiveIdx = useRef(-1);
+
+  useEffect(() => {
+    if (activeIdx === prevActiveIdx.current) return;
+    const prev = prevActiveIdx.current;
+    // Finalise previous active step
+    if (prev >= 0 && prev < total) {
+      setStepFinalMs(arr => {
+        const next = [...arr];
+        next[prev] = STEP_DURATIONS[prev] ?? 1000;
+        return next;
+      });
+    }
+    // Start new active step
+    if (activeIdx >= 0) {
+      setStepStartTimes(arr => {
+        const next = [...arr];
+        next[activeIdx] = Date.now();
+        return next;
+      });
+    }
+    prevActiveIdx.current = activeIdx;
+  }, [activeIdx, total]);
 
   return (
     <div className="mb-3 rounded-xl border border-border/60 bg-accent/20 overflow-hidden">
@@ -104,11 +151,18 @@ function TaskProgress({ progress }: { progress: number }) {
                     {step.action.replace("...", "")}
                   </div>
                   {isActive && (
-                    <div className="text-[10px] text-muted-foreground/60 mt-0.5 animate-pulse">
-                      {step.tool} · выполняю...
+                    <div className="text-[10px] text-muted-foreground/60 mt-0.5">
+                      <span className="animate-pulse">{step.tool}</span>
                     </div>
                   )}
                 </div>
+                {/* Timer */}
+                {(isDone || isActive) && (
+                  <StepTimer
+                    startedAt={isActive ? stepStartTimes[i] : null}
+                    finalMs={isDone ? stepFinalMs[i] : null}
+                  />
+                )}
               </div>
             );
           })}
