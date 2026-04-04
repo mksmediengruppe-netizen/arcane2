@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { getProjectCost, View } from "@/lib/store";
-import { formatCostShort, formatCost } from "@/lib/mockData";
+import { formatCostShort, formatCost, type Task, type TaskStatus } from "@/lib/mockData";
 import { api } from "@/lib/api";
 import { mapBackendModel } from "@/lib/modelMapper";
 import {
@@ -116,14 +116,15 @@ export default function LeftPanel() {
   const searchRef = useRef<HTMLInputElement>(null);
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  // Load projects from backend on mount
+  // Load projects from backend on mount, then load tasks for each project
   useEffect(() => {
-    api.projects.list().then(res => {
+    api.projects.list().then(async res => {
       if (res.projects && res.projects.length > 0) {
+        // First pass: map projects with empty tasks
         const mapped = res.projects.map(p => ({
           id: p.id,
           name: p.name,
-          tasks: [],
+          tasks: [] as Task[],
           createdAt: new Date(p.created_at * 1000).toISOString().split('T')[0],
           budget: p.budget_limit || undefined,
         }));
@@ -132,6 +133,30 @@ export default function LeftPanel() {
         if (mapped.length > 0) {
           dispatch({ type: 'SET_ACTIVE_TASK', projectId: mapped[0].id, taskId: '' });
         }
+        // Second pass: load tasks for each project from backend
+        const withTasks = await Promise.all(
+          mapped.map(async p => {
+            try {
+              const tr = await api.tasks.list(p.id);
+              return {
+                ...p,
+                tasks: (tr.tasks || []).map(t => ({
+                  id: t.run_id,
+                  name: t.name,
+                  status: (t.status as TaskStatus) || 'done' as TaskStatus,
+                  cost: t.cost || 0,
+                  duration: t.duration || '—',
+                  model: t.model || '—',
+                  messages: [],
+                  createdAt: t.createdAt ? new Date(t.createdAt * 1000).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                })),
+              };
+            } catch {
+              return p; // keep empty tasks on error
+            }
+          })
+        );
+        dispatch({ type: 'SET_PROJECTS', projects: withTasks });
       }
     }).catch(() => {
       // Backend not reachable — keep empty state, user can create projects

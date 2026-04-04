@@ -288,7 +288,14 @@ export const api = {
   // submit → { run: RunResult }
   // getRun → { run: RunResult }
   // cancel → { cancelled, run_id }
+  // list   → { tasks: [...] }  (from compat layer)
   tasks: {
+    list: (projectId: string) => GET<{ tasks: Array<{
+      id: string; run_id: string; name: string; status: string;
+      cost: number; duration: string; model: string; createdAt: number;
+      output: string; artifacts: string[];
+    }> }>(`/api/projects/${projectId}/tasks`),
+
     submit: (projectId: string, data: {
       task: string; mode?: string; budget_limit?: number;
       auto_approve?: boolean; consolidation?: boolean;

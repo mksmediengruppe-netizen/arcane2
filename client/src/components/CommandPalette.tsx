@@ -69,6 +69,46 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
       category: "Навигация", shortcut: "⌘G",
       action: () => { dispatch({ type: "SET_ACTIVE_VIEW", view: "dog-racing" }); onClose(); }
     },
+    {
+      id: "nav-analytics", icon: <Cpu size={14} />, label: "Аналитика",
+      category: "Навигация", shortcut: "⌘A",
+      action: () => { dispatch({ type: "SET_ACTIVE_VIEW", view: "analytics" }); onClose(); }
+    },
+    {
+      id: "nav-models", icon: <Cpu size={14} />, label: "Реестр моделей",
+      category: "Навигация",
+      action: () => { dispatch({ type: "SET_ACTIVE_VIEW", view: "models" }); onClose(); }
+    },
+    {
+      id: "nav-admin-groups", icon: <Users size={14} />, label: "Группы",
+      description: "Управление группами пользователей",
+      category: "Администрирование",
+      action: () => { dispatch({ type: "SET_ACTIVE_VIEW", view: "admin-groups" }); onClose(); }
+    },
+    {
+      id: "nav-admin-permissions", icon: <Users size={14} />, label: "Права доступа",
+      description: "Матрица разрешений",
+      category: "Администрирование",
+      action: () => { dispatch({ type: "SET_ACTIVE_VIEW", view: "admin-permissions" }); onClose(); }
+    },
+    {
+      id: "nav-admin-budgets", icon: <Users size={14} />, label: "Бюджеты",
+      description: "Лимиты расходов",
+      category: "Администрирование",
+      action: () => { dispatch({ type: "SET_ACTIVE_VIEW", view: "admin-budgets" }); onClose(); }
+    },
+    {
+      id: "nav-admin-spending", icon: <Users size={14} />, label: "Расходы",
+      description: "Аналитика расходов",
+      category: "Администрирование",
+      action: () => { dispatch({ type: "SET_ACTIVE_VIEW", view: "admin-spending" }); onClose(); }
+    },
+    {
+      id: "nav-admin-logs", icon: <Users size={14} />, label: "Аудит-лог",
+      description: "Журнал действий администратора",
+      category: "Администрирование",
+      action: () => { dispatch({ type: "SET_ACTIVE_VIEW", view: "admin-logs" }); onClose(); }
+    },
     // Actions
     {
       id: "action-new-project", icon: <FolderOpen size={14} />, label: "Новый проект",
