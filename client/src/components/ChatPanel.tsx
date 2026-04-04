@@ -586,11 +586,11 @@ function InputCard({
           : "border-border bg-input/60 hover:border-border/80 focus-within:border-primary/40"
       }`}>
 
-        {/* Uploaded file chips */}
+        {/* Uploaded file chips — horizontal scroll row */}
         {files.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
+          <div className="flex items-center gap-1.5 px-3 pt-2.5 overflow-x-auto scrollbar-none" style={{ scrollbarWidth: "none" }}>
             {files.map(f => (
-              <div key={f.id} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent border border-border text-[11px] text-foreground max-w-[200px] group">
+              <div key={f.id} className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-accent border border-border text-[11px] text-foreground max-w-[200px] flex-shrink-0 group">
                 {f.preview ? (
                   <img src={f.preview} alt={f.name}
                     className="w-8 h-8 rounded object-cover flex-shrink-0 border border-border/50" />
@@ -607,6 +607,16 @@ function InputCard({
                 </button>
               </div>
             ))}
+            {/* Clear-all button shown when 3+ files */}
+            {files.length >= 3 && (
+              <button
+                onClick={() => { files.forEach(f => { if (f.preview) URL.revokeObjectURL(f.preview); }); setFiles([]); }}
+                className="flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-dashed border-border/60 transition-colors whitespace-nowrap"
+                title="Удалить все файлы">
+                <X size={9} />
+                <span>Очистить всё</span>
+              </button>
+            )}
           </div>
         )}
 
