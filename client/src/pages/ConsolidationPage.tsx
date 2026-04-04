@@ -6,6 +6,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { MODELS, formatCost } from "@/lib/mockData";
+import { api } from "@/lib/api";
 import {
   Brain, Play, Square, ChevronDown, ChevronUp, Check, X,
   Lightbulb, AlertTriangle, GitMerge, Zap, Clock, DollarSign,
@@ -70,7 +71,7 @@ function getOutput(modelId: string): string {
 function ModelChip({
   model, selected, onToggle, disabled
 }: {
-  model: typeof MODELS[0];
+  model: (typeof MODELS)[0];
   selected: boolean;
   onToggle: () => void;
   disabled: boolean;
@@ -138,6 +139,34 @@ export default function ConsolidationPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>(["claude-sonnet-4.6", "gpt-5.4", "gemini-3.1-pro"]);
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState<ModelResult[]>([]);
+  const [availableModels, setAvailableModels] = useState(MODELS);
+
+  // Load real models from API, fall back to mock
+  useEffect(() => {
+    api.models.list().then((data: any) => {
+      const llm = data?.llm_models;
+      if (llm?.length) {
+        const mapped = llm.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          icon: m.icon || "🤖",
+          color: m.color || "#3B82F6",
+          isFree: m.is_free ?? false,
+          costIn: m.cost_per_1k_input ?? 0,
+          costOut: m.cost_per_1k_output ?? 0,
+          provider: m.provider || "",
+          description: m.description || "",
+          contextWindow: m.context_window || 128000,
+          category: m.category || "llm",
+        }));
+        setAvailableModels(mapped);
+        // Update default selection to first 3 real model IDs
+        if (mapped.length >= 2) {
+          setSelectedIds(mapped.slice(0, 3).map((m: any) => m.id));
+        }
+      }
+    }).catch(() => { /* keep mock */ });
+  }, []);
   const [consolidated, setConsolidated] = useState<ConsolidatedResult | null>(null);
   const [phase, setPhase] = useState<"idle" | "running" | "consolidating" | "done">("idle");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -153,7 +182,7 @@ export default function ConsolidationPage() {
     );
   };
 
-  const getModelById = (id: string) => MODELS.find(m => m.id === id)!;
+  const getModelById = (id: string) => availableModels.find(m => m.id === id) || MODELS.find(m => m.id === id)!;
 
   const handleRun = async () => {
     if (!prompt.trim() || selectedIds.length < 2) {
@@ -294,7 +323,7 @@ export default function ConsolidationPage() {
             <span className="text-[11px] text-muted-foreground">Выберите 2–5 моделей</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-            {MODELS.map(m => (
+            {availableModels.map(m => (
               <ModelChip
                 key={m.id}
                 model={m}

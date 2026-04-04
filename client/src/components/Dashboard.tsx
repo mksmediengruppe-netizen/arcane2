@@ -4,6 +4,8 @@ import { DASHBOARD_DAILY, DASHBOARD_MODELS, DASHBOARD_PROJECTS, formatCostShort 
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { TrendingUp, DollarSign, Zap, Clock, Download } from "lucide-react";
 import { toast } from "sonner";
+import { useState, useEffect } from "react";
+import { api } from "@/lib/api";
 
 const CHART_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4"];
 
@@ -61,6 +63,21 @@ export default function Dashboard() {
   const totalTasks = state.projects.reduce((s, p) => s + p.tasks.length, 0);
   const avgCostPerTask = totalTasks > 0 ? totalSpent / totalTasks : 0;
 
+  // Real API data with mock fallback
+  const [daily, setDaily] = useState(DASHBOARD_DAILY);
+  const [byModel, setByModel] = useState(DASHBOARD_MODELS);
+  const [byProject, setByProject] = useState(DASHBOARD_PROJECTS);
+  const [apiTotal, setApiTotal] = useState<number | null>(null);
+
+  useEffect(() => {
+    api.admin.spending.overview().then((data: any) => {
+      if (data?.daily?.length) setDaily(data.daily.map((d: any) => ({ date: d.date || d.day, cost: d.cost || d.total || 0 })));
+      if (data?.by_model?.length) setByModel(data.by_model.map((m: any) => ({ name: m.model || m.name, cost: m.cost || m.total || 0 })));
+      if (data?.by_project?.length) setByProject(data.by_project.map((p: any) => ({ name: p.project || p.name, cost: p.cost || p.total || 0 })));
+      if (data?.total_cost != null) setApiTotal(data.total_cost);
+    }).catch(() => { /* keep mocks */ });
+  }, []);
+
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       <div className="px-6 py-4 border-b border-border flex-shrink-0">
@@ -79,7 +96,7 @@ export default function Dashboard() {
       <div className="p-6 space-y-6">
         {/* Stats row */}
         <div className="grid grid-cols-4 gap-4">
-          <StatCard icon={<DollarSign size={14} />} label="Всего потрачено" value={`$${totalSpent.toFixed(2)}`} sub="за все время" />
+          <StatCard icon={<DollarSign size={14} />} label="Всего потрачено" value={`$${(apiTotal ?? totalSpent).toFixed(2)}`} sub="за все время" />
           <StatCard icon={<Zap size={14} />} label="Задач выполнено" value={String(totalTasks)} sub={`в ${state.projects.length} проектах`} />
           <StatCard icon={<TrendingUp size={14} />} label="Ср. стоимость задачи" value={`$${avgCostPerTask.toFixed(3)}`} sub="на задачу" />
           <StatCard icon={<Clock size={14} />} label="Гонок проведено" value={String(state.races.length)} sub="Dog Racing" />
@@ -89,7 +106,7 @@ export default function Dashboard() {
         <div className="bg-card border border-border rounded-xl p-4">
           <h3 className="text-[12px] font-semibold text-foreground mb-4">Расходы по дням</h3>
           <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={DASHBOARD_DAILY} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
+            <AreaChart data={daily} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="costGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
@@ -112,14 +129,14 @@ export default function Dashboard() {
             <div className="flex gap-4">
               <ResponsiveContainer width="50%" height={140}>
                 <PieChart>
-                  <Pie data={DASHBOARD_MODELS} dataKey="cost" cx="50%" cy="50%" innerRadius={35} outerRadius={60} paddingAngle={2}>
-                    {DASHBOARD_MODELS.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                  <Pie data={byModel} dataKey="cost" cx="50%" cy="50%" innerRadius={35} outerRadius={60} paddingAngle={2}>
+                    {byModel.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                   </Pie>
                   <Tooltip content={<CustomTooltip />} />
                 </PieChart>
               </ResponsiveContainer>
               <div className="flex-1 space-y-1.5 py-2">
-                {DASHBOARD_MODELS.map((m, i) => (
+                {byModel.map((m, i) => (
                   <div key={m.name} className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] }} />
                     <span className="text-[11px] text-foreground flex-1 truncate">{m.name}</span>
@@ -134,7 +151,7 @@ export default function Dashboard() {
           <div className="bg-card border border-border rounded-xl p-4">
             <h3 className="text-[12px] font-semibold text-foreground mb-4">Расходы по проектам</h3>
             <ResponsiveContainer width="100%" height={140}>
-              <BarChart data={DASHBOARD_PROJECTS} layout="vertical" margin={{ top: 0, right: 10, bottom: 0, left: 0 }}>
+              <BarChart data={byProject} layout="vertical" margin={{ top: 0, right: 10, bottom: 0, left: 0 }}>
                 <XAxis type="number" tick={{ fontSize: 10, fill: "oklch(0.52 0.01 265)" }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "oklch(0.52 0.01 265)" }} axisLine={false} tickLine={false} width={100} />
                 <Tooltip content={<CustomTooltip />} />
