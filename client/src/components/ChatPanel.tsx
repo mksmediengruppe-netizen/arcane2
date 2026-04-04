@@ -1764,6 +1764,13 @@ export default function ChatPanel() {
         dispatch({ type: "ADD_MESSAGE", projectId: state.activeProjectId!, taskId: state.activeTaskId!, message: aiMsg });
         dispatch({ type: "UPDATE_TASK_STATUS", projectId: state.activeProjectId!, taskId: state.activeTaskId!, status: "done", duration: `${latency}s` });
 
+        // Toast notification on task completion
+        const taskTitle = activeTask?.name || "Задача";
+        toast.success(`✓ ${taskTitle}`, {
+          description: `Завершено за ${latency}с · Стоимость: $${finalCost.toFixed(4)}`,
+          duration: 5000,
+        });
+
         if (activeProject?.budget != null) {
           const newProjectCost = projectCost + finalCost;
           const pct = (newProjectCost / activeProject.budget) * 100;
@@ -1779,7 +1786,8 @@ export default function ChatPanel() {
           }
         }
       } catch (err: any) {
-        toast.error("Ошибка API", { description: err?.message || "Не удалось получить ответ" });
+        const errTaskTitle = activeTask?.name || "Задача";
+        toast.error(`✗ ${errTaskTitle}`, { description: err?.message || "Не удалось получить ответ", duration: 6000 });
         dispatch({ type: "UPDATE_TASK_STATUS", projectId: state.activeProjectId!, taskId: state.activeTaskId!, status: "error" });
       } finally {
         setIsGenerating(false);

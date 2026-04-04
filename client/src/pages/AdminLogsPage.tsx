@@ -20,6 +20,17 @@ const ACTION_LABELS: Record<string, string> = {
   running: "Выполняется",
   error: "Ошибка",
   warning: "Предупреждение",
+  // Backend action types (dot notation)
+  "user.create": "Пользователь создан",
+  "user.delete": "Пользователь удалён",
+  "user.block": "Пользователь заблокирован",
+  "user.unblock": "Пользователь разблокирован",
+  "user.update": "Пользователь изменён",
+  "group.create": "Группа создана",
+  "group.delete": "Группа удалена",
+  "group.update": "Группа изменена",
+  "budget.update": "Бюджет изменён",
+  "permission.update": "Права изменены",
 };
 
 const ACTION_COLORS: Record<string, string> = {
@@ -39,6 +50,17 @@ const ACTION_COLORS: Record<string, string> = {
   running: "bg-blue-100 text-blue-700",
   error: "bg-red-100 text-red-700",
   warning: "bg-amber-100 text-amber-700",
+  // Backend action types
+  "user.create": "bg-purple-100 text-purple-700",
+  "user.delete": "bg-red-100 text-red-700",
+  "user.block": "bg-red-100 text-red-700",
+  "user.unblock": "bg-green-100 text-green-700",
+  "user.update": "bg-blue-100 text-blue-700",
+  "group.create": "bg-indigo-100 text-indigo-700",
+  "group.delete": "bg-red-100 text-red-700",
+  "group.update": "bg-indigo-100 text-indigo-700",
+  "budget.update": "bg-amber-100 text-amber-700",
+  "permission.update": "bg-purple-100 text-purple-700",
 };
 
 const PAGE_SIZE = 20;
@@ -65,6 +87,7 @@ export default function AdminLogsPage() {
         offset: String(offset),
       };
       if (userFilter !== "all") params.userId = userFilter;
+      if (actionFilter !== "all") params.action = actionFilter;
       const data: any = await api.admin.logs.list(params);
       const entries: AuditLogEntry[] = (data.logs || data || []).map((l: any) => ({
         id: l.id || `log${Date.now()}${Math.random()}`,
@@ -94,7 +117,7 @@ export default function AdminLogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [userFilter]);
+  }, [userFilter, actionFilter]);
 
   useEffect(() => {
     fetchLogs(page);
