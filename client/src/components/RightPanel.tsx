@@ -3,24 +3,15 @@
 import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { formatCost } from "@/lib/mockData";
-import LiveCodePreview from "./LiveCodePreview";
+import LiveCodePreview, { ENRICHED_STEPS, StepPayload } from "./LiveCodePreview";
 import {
   ChevronRight, X, Terminal, FileText, Activity, DollarSign,
-  Layers, Brain, Monitor, Smartphone, Tablet, ExternalLink, BookOpen, Plus, Trash2
+  Layers, Brain, Monitor, Smartphone, Tablet, ExternalLink, BookOpen, Plus, Trash2, Code
 } from "lucide-react";
 
 type RightTab = "live" | "steps" | "thinking" | "preview" | "terminal" | "artifacts" | "budget" | "memory";
 
-const MOCK_STEPS = [
-  { id: 1, tool: "Browser",    action: "Открыл https://ubuntu.com/download",          time: "0.3s",  cost: 0.0002 },
-  { id: 2, tool: "Browser",    action: "Извлёк инструкции по установке",               time: "0.8s",  cost: 0.0012 },
-  { id: 3, tool: "SSH",        action: "Подключился к серверу 192.168.1.100",          time: "0.1s",  cost: 0.0001 },
-  { id: 4, tool: "SSH",        action: "Выполнил: apt update && apt upgrade -y",       time: "45.2s", cost: 0.0089 },
-  { id: 5, tool: "SSH",        action: "Установил nginx, php8.1-fpm, mysql-server",    time: "32.1s", cost: 0.0067 },
-  { id: 6, tool: "FileSystem", action: "Создал /etc/nginx/sites-available/bitrix.conf", time: "0.1s", cost: 0.0001 },
-  { id: 7, tool: "SSH",        action: "Перезапустил nginx и php-fpm",                 time: "2.3s",  cost: 0.0004 },
-  { id: 8, tool: "LLM",        action: "Сгенерировал итоговый отчёт",                  time: "3.8s",  cost: 0.1240 },
-];
+// Use ENRICHED_STEPS from LiveCodePreview instead of local MOCK_STEPS
 
 const MOCK_LOGS = [
   "[10:00:01] INFO  Task started: Установка Bitrix на сервер",
@@ -128,6 +119,12 @@ export default function RightPanel() {
   const [thinkingExpanded, setThinkingExpanded] = useState(true);
   const [memories, setMemories] = useState(MOCK_MEMORY);
   const [newMemory, setNewMemory] = useState("");
+  const [selectedStep, setSelectedStep] = useState<StepPayload | null>(null);
+
+  function handleStepClick(step: StepPayload) {
+    setSelectedStep(step);
+    setTab("live");
+  }
 
   const activeTask = state.activeProjectId && state.activeTaskId
     ? state.projects.find(p => p.id === state.activeProjectId)?.tasks.find(t => t.id === state.activeTaskId)
@@ -213,7 +210,16 @@ export default function RightPanel() {
             </div>
 
             {/* Live code preview — expanded */}
-            {activeTask?.status === "running" ? (
+            {selectedStep ? (
+              <div className="flex-1 overflow-hidden">
+                <LiveCodePreview
+                  isGenerating={false}
+                  selectedStep={selectedStep}
+                  expanded={true}
+                  onBack={() => setSelectedStep(null)}
+                />
+              </div>
+            ) : activeTask?.status === "running" ? (
               <div className="flex-1 overflow-hidden">
                 <LiveCodePreview isGenerating={true} expanded={true} />
               </div>
@@ -221,7 +227,7 @@ export default function RightPanel() {
               <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
                 <Activity size={24} className="text-muted-foreground/30 mb-2" />
                 <div className="text-[12px] text-muted-foreground">Нет активных задач</div>
-                <div className="text-[11px] text-muted-foreground/50 mt-1">Запустите задачу чтобы видеть живой код</div>
+                <div className="text-[11px] text-muted-foreground/50 mt-1">Кликните на шаг во вкладке "Шаги"</div>
               </div>
             )}
           </div>
@@ -230,11 +236,21 @@ export default function RightPanel() {
         {/* STEPS */}
         {tab === "steps" && (
           <div className="p-2">
-            {MOCK_STEPS.map((step, i) => (
-              <div key={step.id} className="flex gap-2.5 px-2 py-2 hover:bg-accent/30 rounded-md transition-colors">
+            <div className="px-2 py-1.5 mb-1">
+              <span className="text-[10px] text-muted-foreground/50">Кликните на шаг чтобы увидеть код</span>
+            </div>
+            {ENRICHED_STEPS.map((step, i) => (
+              <button
+                key={step.id}
+                onClick={() => handleStepClick(step)}
+                className={`w-full flex gap-2.5 px-2 py-2 rounded-md transition-all text-left group ${
+                  selectedStep?.id === step.id
+                    ? "bg-primary/10 border border-primary/20"
+                    : "hover:bg-accent/30 border border-transparent"
+                }`}>
                 <div className="flex flex-col items-center gap-1 flex-shrink-0">
                   <span className="mono text-[10px] text-muted-foreground/50 w-4 text-right">{i + 1}</span>
-                  {i < MOCK_STEPS.length - 1 && <div className="w-px h-3 bg-border" />}
+                  {i < ENRICHED_STEPS.length - 1 && <div className="w-px h-3 bg-border" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5">
@@ -243,10 +259,16 @@ export default function RightPanel() {
                     </span>
                     <span className="mono text-[10px] text-muted-foreground/50">{step.time}</span>
                     <span className="mono text-[10px] text-muted-foreground/50">{formatCost(step.cost)}</span>
+                    <span className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Code size={10} className="text-primary" />
+                    </span>
                   </div>
                   <div className="text-[11px] text-foreground/70 truncate">{step.action}</div>
+                  {step.file && (
+                    <div className="text-[10px] text-muted-foreground/40 truncate mt-0.5 font-mono">{step.file}</div>
+                  )}
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -455,7 +477,7 @@ export default function RightPanel() {
 
             <div className="border-t border-border pt-3">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Разбивка по шагам</div>
-              {MOCK_STEPS.map(step => (
+              {ENRICHED_STEPS.map(step => (
                 <div key={step.id} className="flex items-center justify-between py-1">
                   <span className={`text-[11px] ${TOOL_COLORS[step.tool] || "text-muted-foreground"}`}>{step.tool}</span>
                   <span className="mono text-[11px] text-muted-foreground">{formatCost(step.cost)}</span>
