@@ -120,7 +120,11 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       const task = state.projects.find(p => p.id === action.fromProjectId)?.tasks.find(t => t.id === action.taskId);
       if (!task) return state;
       const projects = state.projects.map(p => {
-        if (p.id === action.fromProjectId) return { ...p, tasks: p.tasks.filter(t => t.id !== action.taskId) };
+        if (p.id === action.fromProjectId) {
+          // Keep the moved task's cost in spentCost of the source project (money was spent there)
+          const newSpent = parseFloat(((p.spentCost ?? 0) + task.cost).toFixed(4));
+          return { ...p, tasks: p.tasks.filter(t => t.id !== action.taskId), spentCost: newSpent };
+        }
         if (p.id === action.toProjectId) return { ...p, tasks: [...p.tasks, task] };
         return p;
       });
@@ -139,9 +143,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, projects };
     }
     case "DELETE_TASK": {
-      const projects = state.projects.map(p =>
-        p.id !== action.projectId ? p : { ...p, tasks: p.tasks.filter(t => t.id !== action.taskId) }
-      );
+      const projects = state.projects.map(p => {
+        if (p.id !== action.projectId) return p;
+        const task = p.tasks.find(t => t.id === action.taskId);
+        const taskCost = task?.cost ?? 0;
+        // Accumulate the deleted task's cost into spentCost so it's never lost
+        const newSpent = parseFloat(((p.spentCost ?? 0) + taskCost).toFixed(4));
+        return { ...p, tasks: p.tasks.filter(t => t.id !== action.taskId), spentCost: newSpent };
+      });
       const wasActive = state.activeTaskId === action.taskId && state.activeProjectId === action.projectId;
       return { ...state, projects, activeTaskId: wasActive ? null : state.activeTaskId };
     }
@@ -205,5 +214,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 export function getProjectCost(projects: Project[], projectId: string): number {
   const proj = projects.find(p => p.id === projectId);
   if (!proj) return 0;
-  return proj.tasks.reduce((sum, t) => sum + t.cost, 0);
+  // Live task costs + any cost from deleted/moved tasks (spentCost is cumulative, never decreases)
+  const liveCost = proj.tasks.reduce((sum, t) => sum + t.cost, 0);
+  return parseFloat((liveCost + (proj.spentCost ?? 0)).toFixed(4));
 }

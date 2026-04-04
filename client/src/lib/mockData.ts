@@ -31,7 +31,8 @@ export interface Project {
   name: string;
   tasks: Task[];
   createdAt: string;
-  budget?: number; // optional budget limit in USD
+  budget?: number;    // optional budget limit in USD
+  spentCost?: number; // cumulative cost — never decreases even when tasks are deleted
 }
 
 export interface RaceResult {

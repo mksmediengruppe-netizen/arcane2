@@ -216,25 +216,118 @@ export default function LeftPanel() {
     setShowNewTask(prev => ({ ...prev, [projectId]: false }));
   };
 
-  // ── Collapsed state: just a thin strip with reopen button ──────────────────
+  // ── Collapsed state: Manus-style icon rail ───────────────────────────────────────────
   if (!state.leftPanelOpen) {
     return (
-      <div className="w-10 flex flex-col items-center py-3 border-r border-border bg-sidebar flex-shrink-0">
+      <div className="w-12 flex flex-col items-center py-2 border-r border-border bg-sidebar flex-shrink-0 gap-0.5">
+        {/* Logo / reopen button at top */}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
               onClick={() => dispatch({ type: "TOGGLE_LEFT_PANEL" })}
-              className="p-2 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors">
-              <ChevronRight size={14} />
+              className="w-8 h-8 rounded-lg bg-primary/15 hover:bg-primary/25 flex items-center justify-center text-primary transition-colors mb-1">
+              <Zap size={13} />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="right">Открыть панель</TooltipContent>
+          <TooltipContent side="right">Открыть панель (⌘B)</TooltipContent>
+        </Tooltip>
+
+        {/* Chat / tasks icon */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => { dispatch({ type: "TOGGLE_LEFT_PANEL" }); }}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                state.activeView === "chat"
+                  ? "bg-primary/15 text-primary"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              }`}>
+              <FolderOpen size={14} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Задачи</TooltipContent>
+        </Tooltip>
+
+        {/* Nav items as icons */}
+        {navItems.map(item => (
+          <Tooltip key={item.view}>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", view: item.view })}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                  state.activeView === item.view
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                }`}>
+                {item.icon}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">{item.label}</TooltipContent>
+          </Tooltip>
+        ))}
+
+        {/* Dog Racing */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => dispatch({ type: "SET_ACTIVE_VIEW", view: "dog-racing" })}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors text-[14px] ${
+                state.activeView === "dog-racing"
+                  ? "bg-primary/15"
+                  : "text-muted-foreground hover:bg-accent"
+              }`}>
+              🐕
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Dog Racing</TooltipContent>
+        </Tooltip>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Theme toggle */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => dispatch({ type: "TOGGLE_THEME" })}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+              {state.theme === "dark" ? <Sun size={13} /> : <Moon size={13} />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">{state.theme === "dark" ? "Светлая тема" : "Тёмная тема"}</TooltipContent>
+        </Tooltip>
+
+        {/* Bell with badge */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => setShowNotifications(true)}
+              className="relative w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+              <Bell size={13} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-red-500 flex items-center justify-center text-[8px] font-bold text-white leading-none">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Уведомления</TooltipContent>
+        </Tooltip>
+
+        {/* User avatar */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => dispatch({ type: "TOGGLE_LEFT_PANEL" })}
+              className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary hover:bg-primary/30 transition-colors mt-0.5 mb-1">
+              АП
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Алексей Петров</TooltipContent>
         </Tooltip>
       </div>
     );
-  }
-
-  // ── Expanded state ──────────────────────────────────────────────────────────
+  }// ── Expanded state ──────────────────────────────────────────────────────────
   return (<>
     <div className="flex flex-col h-full bg-sidebar border-r border-border overflow-hidden select-none"
       style={{ width: state.leftPanelWidth }}>

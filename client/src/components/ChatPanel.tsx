@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useApp } from "@/contexts/AppContext";
 import { MODELS, formatCost, Message } from "@/lib/mockData";
+import { getProjectCost } from "@/lib/store";
 import {
   Send, ChevronDown, Brain, Zap, ChevronRight, Copy, RotateCcw,
   ThumbsUp, ThumbsDown, Square, Globe, Terminal, FileText,
@@ -214,6 +215,153 @@ function TaskProgress({ progress }: { progress: number }) {
                     />
                     <span className={`mono text-[10px] tabular-nums ${
                       isDone ? 'text-muted-foreground/40' : 'text-amber-400/70 animate-pulse'
+                    }`}>
+                      {formatStepCost(STEP_COSTS[i])}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Compact plan bar shown above the textarea while task is running ──────────
+function TaskPlanBar({ progress }: { progress: number }) {
+  const total = AGENT_STEPS_SEQUENCE.length;
+  const doneCount = Math.floor(progress * total);
+  const activeIdx = doneCount < total ? doneCount : -1;
+  const isComplete = doneCount >= total;
+  const [collapsed, setCollapsed] = useState(true); // collapsed by default
+
+  // Total elapsed timer
+  const totalStartRef = useRef<number | null>(null);
+  const [totalElapsed, setTotalElapsed] = useState(0);
+  const [totalFinal, setTotalFinal] = useState<number | null>(null);
+  const prevActiveIdx = useRef(-1);
+  const [stepStartTimes, setStepStartTimes] = useState<(number | null)[]>(() => Array(total).fill(null));
+  const [stepFinalMs, setStepFinalMs] = useState<(number | null)[]>(() => Array(total).fill(null));
+
+  useEffect(() => {
+    if (activeIdx === prevActiveIdx.current) return;
+    const prev = prevActiveIdx.current;
+    if (prev === -1 && activeIdx === 0) totalStartRef.current = Date.now();
+    if (prev >= 0 && prev < total) {
+      setStepFinalMs(arr => { const n = [...arr]; n[prev] = STEP_DURATIONS[prev] ?? 1000; return n; });
+    }
+    if (activeIdx >= 0) {
+      setStepStartTimes(arr => { const n = [...arr]; n[activeIdx] = Date.now(); return n; });
+    }
+    prevActiveIdx.current = activeIdx;
+  }, [activeIdx, total]);
+
+  useEffect(() => {
+    if (isComplete && totalStartRef.current !== null && totalFinal === null)
+      setTotalFinal(STEP_DURATIONS.reduce((a, b) => a + b, 0));
+  }, [isComplete, totalFinal]);
+
+  useEffect(() => {
+    if (totalFinal !== null || totalStartRef.current === null) return;
+    const id = setInterval(() => { if (totalStartRef.current) setTotalElapsed(Date.now() - totalStartRef.current); }, 100);
+    return () => clearInterval(id);
+  }, [totalFinal]);
+
+  const totalMs = totalFinal ?? totalElapsed;
+  const totalSecs = totalMs > 0 ? (totalMs / 1000).toFixed(1) + 's' : '0.0s';
+  const activeStep = activeIdx >= 0 ? AGENT_STEPS_SEQUENCE[activeIdx] : null;
+  const stepNum = Math.min(doneCount + (activeIdx >= 0 ? 1 : 0), total);
+
+  return (
+    <div className="overflow-hidden">
+      {/* Single-line header — always visible */}
+      <button
+        onClick={() => setCollapsed(v => !v)}
+        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent/30 transition-colors text-left">
+        {/* Clock icon */}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          className={`flex-shrink-0 ${isComplete ? 'text-emerald-400' : 'text-blue-400'}`}>
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+        {/* Current step text */}
+        <span className={`flex-1 text-[11px] truncate ${
+          isComplete ? 'text-emerald-400' : 'text-foreground/80'
+        }`}>
+          {isComplete
+            ? 'Задача выполнена'
+            : activeStep
+              ? activeStep.action
+              : 'Подготовка...'}
+        </span>
+        {/* Step counter */}
+        <span className={`mono text-[10px] tabular-nums flex-shrink-0 ${
+          isComplete ? 'text-emerald-400/70' : 'text-muted-foreground/60'
+        }`}>
+          {stepNum} / {total}
+        </span>
+        {/* Live timer */}
+        <span className={`mono text-[11px] tabular-nums flex-shrink-0 font-medium ${
+          isComplete ? 'text-emerald-400' : 'text-blue-400 animate-pulse'
+        }`}>
+          {totalSecs}
+        </span>
+        {/* Chevron */}
+        <ChevronDown size={11} className={`flex-shrink-0 text-muted-foreground/50 transition-transform ${
+          collapsed ? '-rotate-90' : ''
+        }`} />
+      </button>
+
+      {/* Thin progress bar */}
+      <div className="h-0.5 bg-border/30 mx-3">
+        <div
+          className={`h-full transition-all duration-500 rounded-full ${
+            isComplete ? 'bg-emerald-400' : 'bg-blue-400'
+          }`}
+          style={{ width: `${(stepNum / total) * 100}%` }}
+        />
+      </div>
+
+      {/* Expandable steps list */}
+      {!collapsed && (
+        <div className="px-3 pb-2 pt-1 space-y-0 border-t border-border/20 mt-1">
+          {AGENT_STEPS_SEQUENCE.map((step, i) => {
+            const isDone = i < doneCount;
+            const isActive = i === activeIdx;
+            return (
+              <div key={i} className={`flex items-center gap-2 py-1 ${
+                i < AGENT_STEPS_SEQUENCE.length - 1 ? 'border-b border-border/10' : ''
+              }`}>
+                {isDone ? (
+                  <span className="flex-shrink-0 w-3.5 h-3.5 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                    <Check size={8} className="text-emerald-400" />
+                  </span>
+                ) : isActive ? (
+                  <span className="flex-shrink-0 w-3.5 h-3.5 rounded-full bg-primary/20 flex items-center justify-center">
+                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  </span>
+                ) : (
+                  <span className="flex-shrink-0 w-3.5 h-3.5 rounded-full border border-border/40 flex items-center justify-center">
+                    <span className="w-1 h-1 rounded-full bg-muted-foreground/20" />
+                  </span>
+                )}
+                <span className={`flex-1 text-[11px] truncate ${
+                  isDone ? 'text-foreground/40 line-through decoration-muted-foreground/20' :
+                  isActive ? 'text-foreground font-medium' :
+                  'text-muted-foreground/40'
+                }`}>
+                  {step.action.replace('...', '')}
+                </span>
+                {(isDone || isActive) && (
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <StepTimer
+                      startedAt={isActive ? stepStartTimes[i] : null}
+                      finalMs={isDone ? stepFinalMs[i] : null}
+                    />
+                    <span className={`mono text-[10px] ${
+                      isDone ? 'text-muted-foreground/30' : 'text-amber-400/60 animate-pulse'
                     }`}>
                       {formatStepCost(STEP_COSTS[i])}
                     </span>
@@ -888,7 +1036,7 @@ export default function ChatPanel() {
     : null;
 
   const activeProject = state.projects.find(p => p.id === state.activeProjectId);
-  const projectCost = activeProject?.tasks.reduce((s, t) => s + t.cost, 0) || 0;
+  const projectCost = state.activeProjectId ? getProjectCost(state.projects, state.activeProjectId) : 0;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1113,6 +1261,22 @@ export default function ChatPanel() {
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* ── Task plan bar + mini code thumbnail above input ── */}
+      {isGenerating && (
+        <div className="flex-shrink-0 px-4 pt-2 pb-1 space-y-2">
+          {/* Mini live code thumbnail */}
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0">
+              <LiveCodePreview isGenerating={isGenerating} />
+            </div>
+            {/* Task plan progress bar */}
+            <div className="flex-1 min-w-0 rounded-xl border border-border/50 bg-accent/20 overflow-hidden">
+              <TaskPlanBar progress={Math.min(1, streamingText.length / 200)} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Manus-style unified input card ── */}
       <InputCard
