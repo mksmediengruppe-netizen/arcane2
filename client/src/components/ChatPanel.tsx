@@ -1013,13 +1013,19 @@ function InputCard({
             {showModePicker && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowModePicker(false)} />
-                <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[160px]">
+                <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[260px]">
+                  <div className="px-3 py-1.5 text-[9px] font-semibold text-muted-foreground/50 uppercase tracking-wider border-b border-border/50">Режим работы</div>
                   {CHAT_MODES.map(mode => (
                     <button key={mode.id} onClick={() => { setChatMode(mode.id); setShowModePicker(false); }}
-                      className={`w-full flex items-center gap-2 px-3 py-1.5 text-[11px] hover:bg-accent transition-colors ${
-                        chatMode === mode.id ? "text-primary" : "text-foreground"
+                      className={`w-full flex items-start gap-2 px-3 py-2 text-[11px] hover:bg-accent transition-colors ${
+                        chatMode === mode.id ? "bg-primary/5 text-primary" : "text-foreground"
                       }`}>
-                      <span>{mode.icon}</span><span>{mode.label}</span>
+                      <span className="mt-0.5 flex-shrink-0">{mode.icon}</span>
+                      <div className="flex-1 text-left">
+                        <div className="font-medium">{mode.label}</div>
+                        <div className="text-[9px] text-muted-foreground/70 mt-0.5 leading-snug">{mode.desc}</div>
+                      </div>
+                      {chatMode === mode.id && <Check size={10} className="mt-1 flex-shrink-0 text-primary" />}
                     </button>
                   ))}
                 </div>
@@ -1133,7 +1139,7 @@ function InputCard({
                             <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider border-b border-border/50 mb-1">
                               Модель для {agent.label}
                             </div>
-                            {MODELS.map(m => (
+                            {(chatMode === ("free" as string) ? MODELS.filter(m => m.isFree) : MODELS).map(m => (
                               <button key={m.id}
                                 onClick={() => {
                                   const newOverrides = { ...agentModelOverrides, [aid]: m.id };
@@ -1144,9 +1150,12 @@ function InputCard({
                                 className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors ${
                                   effectiveModelId === m.id ? "bg-primary/10 text-primary" : ""
                                 }`}>
+                                <span style={{ color: m.color }}>{m.icon}</span>
                                 <div className="flex-1 text-left">
                                   <div className="text-[11px] text-foreground">{m.name}</div>
-                                  <div className="text-[9px] text-muted-foreground">${('costIn' in m ? m.costIn : 0).toFixed(2)}/${('costOut' in m ? m.costOut : 0).toFixed(2)} за 1M</div>
+                                  <div className="text-[9px] text-muted-foreground">
+                                    {m.isFree ? <span className="text-emerald-400">✓ Бесплатно</span> : `$${m.costIn}/$${m.costOut} за 1M`}
+                                  </div>
                                 </div>
                                 {effectiveModelId === m.id && <Check size={10} className="text-primary flex-shrink-0" />}
                               </button>
@@ -1159,6 +1168,17 @@ function InputCard({
                 })}
                 {/* MANUAL: add agent button */}
                 {chatMode === "manual" && (
+                  <>
+                  <button
+                    onClick={() => {
+                      setAgentIds(MODE_AGENTS["manual"]);
+                      setAgentModelOverrides({});
+                      onAgentModelOverridesChange?.({});
+                    }}
+                    title="Сбросить к стандартному набору"
+                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] text-muted-foreground/40 hover:text-muted-foreground hover:bg-accent/40 transition-colors">
+                    <RotateCcw size={8} />
+                  </button>
                   <div className="relative">
                     <button
                       onClick={() => setShowAgentPicker(v => !v)}
@@ -1191,6 +1211,7 @@ function InputCard({
                       </>
                     )}
                   </div>
+                  </>
                 )}
               </div>
             </>
