@@ -675,6 +675,9 @@ function InputCard({
   const [voiceSupported] = useState(() => typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window));
   const [showAgentPicker, setShowAgentPicker] = useState(false);
   const [showCollectivePicker, setShowCollectivePicker] = useState(false);
+  // Per-agent model overrides (MANUAL mode only)
+  const [agentModelOverrides, setAgentModelOverrides] = useState<Record<string, string>>({});
+  const [showModelPickerFor, setShowModelPickerFor] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
@@ -1067,25 +1070,69 @@ function InputCard({
                 {agentIds.map(aid => {
                   const agent = ALL_AGENTS.find(a => a.id === aid);
                   if (!agent) return null;
-                  const model = MODELS.find(m => m.id === agent.modelId);
+                  const effectiveModelId = agentModelOverrides[aid] || agent.modelId;
+                  const model = MODELS.find(m => m.id === effectiveModelId);
+                  const isManual = chatMode === "manual";
                   return (
                     <div key={aid} className="relative group">
-                      <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] ${
-                        chatMode === "manual"
-                          ? "bg-accent/60 border border-border/50 cursor-default"
-                          : "bg-accent/30 cursor-default"
-                      } ${agent.color}`}
-                        title={model ? `${agent.label} → ${model.name}` : agent.label}>
-                        <span>{agent.icon}</span>
-                        <span className="text-muted-foreground">{agent.label}</span>
-                        {chatMode === "manual" && (
-                          <button
-                            onClick={() => setAgentIds(prev => prev.filter(id => id !== aid))}
-                            className="ml-0.5 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all text-muted-foreground">
-                            <X size={8} />
-                          </button>
+                      {/* Agent chip */}
+                      <div className={`flex flex-col px-1.5 py-0.5 rounded text-[10px] ${
+                        isManual
+                          ? "bg-accent/60 border border-border/50"
+                          : "bg-accent/30"
+                      } ${agent.color}`}>
+                        {/* Top row: icon + name + remove */}
+                        <div className="flex items-center gap-1">
+                          <span>{agent.icon}</span>
+                          <span className="font-medium">{agent.label}</span>
+                          {isManual && (
+                            <button
+                              onClick={() => setAgentIds(prev => prev.filter(id => id !== aid))}
+                              className="ml-0.5 opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all text-muted-foreground">
+                              <X size={8} />
+                            </button>
+                          )}
+                        </div>
+                        {/* Bottom row: model name */}
+                        {model && (
+                          isManual ? (
+                            <button
+                              onClick={() => setShowModelPickerFor(v => v === aid ? null : aid)}
+                              className="text-left text-[9px] text-muted-foreground/70 hover:text-foreground transition-colors truncate max-w-[80px] mt-0.5">
+                              ◇ {model.name}
+                            </button>
+                          ) : (
+                            <span className="text-[9px] text-muted-foreground/60 truncate max-w-[80px] mt-0.5">◇ {model.name}</span>
+                          )
                         )}
                       </div>
+                      {/* Model picker dropdown (MANUAL only) */}
+                      {isManual && showModelPickerFor === aid && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setShowModelPickerFor(null)} />
+                          <div className="absolute bottom-full left-0 mb-1 bg-popover border border-border rounded-lg shadow-xl z-50 py-1 min-w-[200px] max-h-[260px] overflow-y-auto">
+                            <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider border-b border-border/50 mb-1">
+                              Модель для {agent.label}
+                            </div>
+                            {MODELS.map(m => (
+                              <button key={m.id}
+                                onClick={() => {
+                                  setAgentModelOverrides(prev => ({ ...prev, [aid]: m.id }));
+                                  setShowModelPickerFor(null);
+                                }}
+                                className={`w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors ${
+                                  effectiveModelId === m.id ? "bg-primary/10 text-primary" : ""
+                                }`}>
+                                <div className="flex-1 text-left">
+                                  <div className="text-[11px] text-foreground">{m.name}</div>
+                                  <div className="text-[9px] text-muted-foreground">${('costIn' in m ? m.costIn : 0).toFixed(2)}/${('costOut' in m ? m.costOut : 0).toFixed(2)} за 1M</div>
+                                </div>
+                                {effectiveModelId === m.id && <Check size={10} className="text-primary flex-shrink-0" />}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </div>
                   );
                 })}
