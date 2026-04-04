@@ -73,6 +73,7 @@ function TaskProgress({ progress }: { progress: number }) {
   const total = AGENT_STEPS_SEQUENCE.length;
   const doneCount = Math.floor(progress * total);
   const activeIdx = doneCount < total ? doneCount : -1;
+  const isComplete = doneCount >= total;
   const [collapsed, setCollapsed] = useState(false);
 
   // Track when each step started and its final duration
@@ -80,9 +81,20 @@ function TaskProgress({ progress }: { progress: number }) {
   const [stepFinalMs, setStepFinalMs] = useState<(number | null)[]>(() => Array(total).fill(null));
   const prevActiveIdx = useRef(-1);
 
+  // Total elapsed timer
+  const totalStartRef = useRef<number | null>(null);
+  const [totalElapsed, setTotalElapsed] = useState(0);
+  const [totalFinal, setTotalFinal] = useState<number | null>(null);
+
   useEffect(() => {
     if (activeIdx === prevActiveIdx.current) return;
     const prev = prevActiveIdx.current;
+
+    // Start total timer when first step begins
+    if (prev === -1 && activeIdx === 0) {
+      totalStartRef.current = Date.now();
+    }
+
     // Finalise previous active step
     if (prev >= 0 && prev < total) {
       setStepFinalMs(arr => {
@@ -102,6 +114,25 @@ function TaskProgress({ progress }: { progress: number }) {
     prevActiveIdx.current = activeIdx;
   }, [activeIdx, total]);
 
+  // Freeze total timer when all steps complete
+  useEffect(() => {
+    if (isComplete && totalStartRef.current !== null && totalFinal === null) {
+      setTotalFinal(STEP_DURATIONS.reduce((a, b) => a + b, 0));
+    }
+  }, [isComplete, totalFinal]);
+
+  // Live tick for total timer
+  useEffect(() => {
+    if (totalFinal !== null || totalStartRef.current === null) return;
+    const id = setInterval(() => {
+      if (totalStartRef.current) setTotalElapsed(Date.now() - totalStartRef.current);
+    }, 100);
+    return () => clearInterval(id);
+  }, [totalFinal]);
+
+  const totalMs = totalFinal ?? totalElapsed;
+  const totalSecs = totalMs > 0 ? (totalMs / 1000).toFixed(1) + 's' : null;
+
   return (
     <div className="mb-3 rounded-xl border border-border/60 bg-accent/20 overflow-hidden">
       {/* Header */}
@@ -110,6 +141,13 @@ function TaskProgress({ progress }: { progress: number }) {
         className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-accent/30 transition-colors">
         <span className="text-[12px] font-semibold text-foreground">Прогресс задачи</span>
         <div className="flex items-center gap-2">
+          {totalSecs && (
+            <span className={`mono text-[11px] tabular-nums ${
+              isComplete ? 'text-emerald-400' : 'text-blue-400 animate-pulse'
+            }`}>
+              {totalSecs}
+            </span>
+          )}
           <span className="mono text-[11px] text-muted-foreground">
             {Math.min(doneCount + (activeIdx >= 0 ? 1 : 0), total)} / {total}
           </span>
