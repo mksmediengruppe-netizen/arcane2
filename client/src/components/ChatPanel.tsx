@@ -11,6 +11,7 @@ import {
   Image, Search, Pencil, Check, X, Plus, Mic, MicOff, Paperclip
 } from "lucide-react";
 import { toast } from "sonner";
+import { HoverCard, HoverCardTrigger, HoverCardContent } from "@/components/ui/hover-card";
 import { Streamdown } from "streamdown";
 import EmptyChat from "./EmptyChat";
 import LiveCodePreview from "./LiveCodePreview";
@@ -422,18 +423,18 @@ const COLLECTIVE_MODELS = ["claude-sonnet-4.6", "gpt-5.4", "deepseek-v3.2"];
 const COLLECTIVE_SYNTH = "claude-opus-4.6";
 
 // ── Agent role definitions ──────────────────────────────────────────────────
-export type AgentRole = { id: string; label: string; icon: string; color: string; modelId: string };
+export type AgentRole = { id: string; label: string; icon: string; color: string; modelId: string; desc: string };
 
 const ALL_AGENTS: AgentRole[] = [
-  { id: "manus",        label: "Manus",           icon: "✦", color: "text-primary",     modelId: "kimi-k2.5" },
-  { id: "orchestrator", label: "Оркестратор",  icon: "🎯", color: "text-violet-400",  modelId: "claude-opus-4.6" },
-  { id: "planner",      label: "Планировщик",  icon: "📋", color: "text-blue-400",   modelId: "claude-sonnet-4.6" },
-  { id: "coder",        label: "Кодер",         icon: "💻", color: "text-emerald-400",modelId: "deepseek-v3.2" },
-  { id: "reviewer",     label: "Ревьюер",       icon: "🔍", color: "text-amber-400",  modelId: "gpt-5.4" },
-  { id: "researcher",   label: "Исследователь", icon: "🔬", color: "text-cyan-400",   modelId: "gemini-3.1-pro" },
-  { id: "writer",       label: "Писатель",       icon: "✍️", color: "text-pink-400",   modelId: "claude-sonnet-4.6" },
-  { id: "analyst",      label: "Аналитик",       icon: "📊", color: "text-orange-400", modelId: "gpt-5.4" },
-  { id: "tester",       label: "Тестировщик",   icon: "🧪", color: "text-red-400",    modelId: "gemini-2.5-flash" },
+  { id: "manus",        label: "Manus",           icon: "✦", color: "text-primary",     modelId: "kimi-k2.5",          desc: "Агент из подписки Arcane. Использует все инструменты: браузер, терминал, файлы. Бесплатно в рамках подписки." },
+  { id: "orchestrator", label: "Оркестратор",  icon: "🎯", color: "text-violet-400",  modelId: "claude-opus-4.6",   desc: "Управляет всеми агентами. Разбивает задачу на подзадачи, назначает роли, контролирует качество итогового результата." },
+  { id: "planner",      label: "Планировщик",  icon: "📋", color: "text-blue-400",   modelId: "claude-sonnet-4.6", desc: "Строит архитектуру решения. Определяет последовательность шагов, зависимости и приоритеты перед началом работы." },
+  { id: "coder",        label: "Кодер",         icon: "💻", color: "text-emerald-400",modelId: "deepseek-v3.2",     desc: "Пишет и рефакторит код. Специализируется на реализации логики, интеграции API и оптимизации производительности." },
+  { id: "reviewer",     label: "Ревьюер",       icon: "🔍", color: "text-amber-400",  modelId: "gpt-5.4",           desc: "Проверяет код на ошибки, уязвимости и несоответствие стандартам. Даёт рекомендации по улучшению." },
+  { id: "researcher",   label: "Исследователь", icon: "🔬", color: "text-cyan-400",   modelId: "gemini-3.1-pro",   desc: "Ищет информацию, анализирует документацию и синтезирует знания для остальных агентов." },
+  { id: "writer",       label: "Писатель",       icon: "✍️", color: "text-pink-400",   modelId: "claude-sonnet-4.6", desc: "Генерирует текстовые материалы: документацию, отчёты, комментарии и описания функциональности." },
+  { id: "analyst",      label: "Аналитик",       icon: "📊", color: "text-orange-400", modelId: "gpt-5.4",           desc: "Анализирует данные, строит графики и выявляет закономерности. Специализируется на количественных выводах." },
+  { id: "tester",       label: "Тестировщик",   icon: "🧪", color: "text-red-400",    modelId: "gemini-2.5-flash",  desc: "Пишет тесты, проверяет edge-кейсы и валидирует поведение системы перед деплойментом." },
 ];
 
 // Preset agents per mode (read-only for standard modes)
@@ -1110,12 +1111,13 @@ function InputCard({
                   const isManual = chatMode === "manual";
                   const isManus = aid === "manus";
                   return (
+                    <HoverCard key={`${aid}-${chipAnimKey}`} openDelay={300} closeDelay={100}>
                     <div
-                      key={`${aid}-${chipAnimKey}`}
                       className="relative group"
                       style={{ animation: `chipEnter 0.22s ease both`, animationDelay: `${idx * 45}ms` }}>
                       {/* Agent chip */}
-                      <div className={`flex flex-col px-1.5 py-0.5 rounded text-[10px] ${
+                      <HoverCardTrigger asChild>
+                      <div className={`flex flex-col px-1.5 py-0.5 rounded text-[10px] cursor-default ${
                         isManus
                           ? "bg-primary/10 border border-primary/30"
                           : isManual
@@ -1150,6 +1152,57 @@ function InputCard({
                           )
                         )}
                       </div>
+                      </HoverCardTrigger>
+                      {/* Rich tooltip */}
+                      <HoverCardContent side="top" align="start" className="w-64 p-0 overflow-hidden">
+                        {/* Header */}
+                        <div className={`px-3 py-2.5 flex items-center gap-2 border-b border-border/50 bg-accent/20`}>
+                          <span className={`text-[16px] ${agent.color}`}>{agent.icon}</span>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[12px] font-semibold text-foreground">{agent.label}</span>
+                              {isManus && <span className="text-[9px] bg-primary/20 text-primary px-1 rounded">подписка</span>}
+                            </div>
+                            {isManus ? (
+                              <span className="text-[10px] text-muted-foreground">Arcane Platform Agent</span>
+                            ) : model ? (
+                              <span className="text-[10px] text-muted-foreground">{model.provider} · {model.name}</span>
+                            ) : null}
+                          </div>
+                        </div>
+                        {/* Description */}
+                        <div className="px-3 py-2 text-[11px] text-muted-foreground leading-relaxed border-b border-border/50">
+                          {agent.desc}
+                        </div>
+                        {/* Model stats */}
+                        {!isManus && model && (
+                          <div className="px-3 py-2 grid grid-cols-3 gap-2">
+                            <div className="text-center">
+                              <div className="text-[10px] text-muted-foreground/60 mb-0.5">Стоимость</div>
+                              <div className="text-[11px] font-medium text-foreground">
+                                {model.isFree ? <span className="text-emerald-400">✓ Free</span> : `$${model.costIn}/$${model.costOut}`}
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-[10px] text-muted-foreground/60 mb-0.5">SWE</div>
+                              <div className="text-[11px] font-medium text-foreground">
+                                {model.swe != null ? `${model.swe}%` : <span className="text-muted-foreground/40">—</span>}
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-[10px] text-muted-foreground/60 mb-0.5">Контекст</div>
+                              <div className="text-[11px] font-medium text-foreground">
+                                {model.context != null ? `${model.context}K` : <span className="text-muted-foreground/40">∞</span>}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {isManus && (
+                          <div className="px-3 py-2 text-[10px] text-muted-foreground/60">
+                            ✦ Бесплатно в рамках подписки Arcane
+                          </div>
+                        )}
+                      </HoverCardContent>
                       {/* Model picker dropdown (MANUAL only) */}
                       {isManual && showModelPickerFor === aid && (
                         <>
@@ -1183,6 +1236,7 @@ function InputCard({
                         </>
                       )}
                     </div>
+                    </HoverCard>
                   );
                 })}
                 {/* MANUAL: add agent button */}
