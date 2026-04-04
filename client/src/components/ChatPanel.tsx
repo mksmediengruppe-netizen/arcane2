@@ -11,6 +11,7 @@ import {
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 import EmptyChat from "./EmptyChat";
+import LiveCodePreview from "./LiveCodePreview";
 
 const TIER_LABELS: Record<string, string> = {
   fast: "Быстрый", standard: "Стандарт", genius: "Гений", optimum: "Оптимум"
@@ -500,6 +501,10 @@ export default function ChatPanel() {
                 </div>
                 {/* Inline agent steps */}
                 <AgentStepsInline progress={Math.min(1, streamingText.length / 200)} />
+                {/* Live code mini preview */}
+                <div className="mb-3">
+                  <LiveCodePreview isGenerating={isGenerating} />
+                </div>
                 {chatMode === "collective" && <CollectiveBlock query={input} />}
                 <div className="text-[13px] leading-relaxed text-foreground">
                   <Streamdown>{streamingText.replace("[COLLECTIVE]", "")}</Streamdown>

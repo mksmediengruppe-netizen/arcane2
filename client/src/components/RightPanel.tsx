@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { formatCost } from "@/lib/mockData";
+import LiveCodePreview from "./LiveCodePreview";
 import {
   ChevronRight, X, Terminal, FileText, Activity, DollarSign,
   Layers, Brain, Monitor, Smartphone, Tablet, ExternalLink, BookOpen, Plus, Trash2
@@ -194,34 +195,33 @@ export default function RightPanel() {
 
         {/* LIVE */}
         {tab === "live" && (
-          <div className="p-4">
-            <div className={`flex items-center gap-2 mb-4 ${activeTask?.status === "running" ? "text-blue-400" : "text-muted-foreground"}`}>
-              <span className={`w-2 h-2 rounded-full ${activeTask?.status === "running" ? "bg-blue-400 animate-pulse" : "bg-zinc-600"}`} />
-              <span className="text-[12px] font-medium">
+          <div className="flex flex-col h-full">
+            {/* Status bar */}
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-border/50 flex-shrink-0">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${activeTask?.status === "running" ? "bg-blue-400 animate-pulse" : "bg-zinc-600"}`} />
+              <span className={`text-[11px] font-medium ${activeTask?.status === "running" ? "text-blue-400" : "text-muted-foreground"}`}>
                 {activeTask?.status === "running" ? "Выполняется..." : "Задача завершена"}
               </span>
-            </div>
-            {activeTask?.status === "running" && (
-              <div className="space-y-3">
-                <div className="bg-card border border-border rounded-lg p-3">
-                  <div className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Текущее действие</div>
-                  <div className="text-[12px] text-foreground">🌐 Открывает страницу документации...</div>
-                </div>
-                <div className="bg-card border border-border rounded-lg p-3">
-                  <div className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Прогресс</div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-muted rounded-full h-1.5">
-                      <div className="bg-blue-400 h-1.5 rounded-full animate-pulse" style={{ width: "65%" }} />
-                    </div>
-                    <span className="mono text-[11px] text-muted-foreground">Шаг 5/8</span>
+              {activeTask?.status === "running" && (
+                <div className="ml-auto flex items-center gap-1.5">
+                  <div className="flex-1 bg-muted rounded-full h-1" style={{ width: "60px" }}>
+                    <div className="bg-blue-400 h-1 rounded-full animate-pulse" style={{ width: "65%" }} />
                   </div>
+                  <span className="mono text-[10px] text-muted-foreground">5/8</span>
                 </div>
+              )}
+            </div>
+
+            {/* Live code preview — expanded */}
+            {activeTask?.status === "running" ? (
+              <div className="flex-1 overflow-hidden">
+                <LiveCodePreview isGenerating={true} expanded={true} />
               </div>
-            )}
-            {activeTask?.status !== "running" && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Activity size={24} className="mx-auto mb-2 opacity-30" />
-                <div className="text-[12px]">Нет активных задач</div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-6">
+                <Activity size={24} className="text-muted-foreground/30 mb-2" />
+                <div className="text-[12px] text-muted-foreground">Нет активных задач</div>
+                <div className="text-[11px] text-muted-foreground/50 mt-1">Запустите задачу чтобы видеть живой код</div>
               </div>
             )}
           </div>
