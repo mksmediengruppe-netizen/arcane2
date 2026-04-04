@@ -12,6 +12,8 @@ import Settings from "@/components/Settings";
 import { PlaybooksView, ScheduleView } from "@/components/Playbooks";
 import CommandPalette from "@/components/CommandPalette";
 import ShortcutsModal from "@/components/ShortcutsModal";
+import ModelsPage from "@/pages/ModelsPage";
+import ConsolidationPage from "@/pages/ConsolidationPage";
 
 function ResizeHandle({ onDrag, onDoubleClick }: { onDrag: (dx: number) => void; onDoubleClick?: () => void }) {
   const isDragging = useRef(false);
@@ -65,7 +67,7 @@ export default function MainLayout() {
     dispatch({ type: "SET_RIGHT_WIDTH", width: newWidth });
   }, [state.rightPanelWidth, dispatch]);
 
-  const isFullView = ["dog-racing", "dashboard", "settings", "admin", "playbooks", "schedule"].includes(state.activeView);
+  const isFullView = ["dog-racing", "dashboard", "settings", "admin", "playbooks", "schedule", "models", "consolidation"].includes(state.activeView);
 
   // Global keyboard shortcuts
   useEffect(() => {
@@ -170,6 +172,8 @@ export default function MainLayout() {
         {state.activeView === "admin" && <Settings />}
         {state.activeView === "playbooks" && <PlaybooksView />}
         {state.activeView === "schedule" && <ScheduleView />}
+        {state.activeView === "models" && <ModelsPage />}
+        {state.activeView === "consolidation" && <ConsolidationPage />}
       </div>
 
       {/* Right resize handle */}

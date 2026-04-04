@@ -20,10 +20,16 @@ const TIER_LABELS: Record<string, string> = {
 };
 
 const CHAT_MODES = [
-  { id: "normal",     label: "Обычный",          icon: "💬" },
-  { id: "collective", label: "Коллективный разум", icon: "🧠" },
-  { id: "auto",       label: "AUTO",              icon: "⚡" },
-  { id: "manual",     label: "MANUAL",            icon: "🎛️" },
+  // ── Execution modes (spec §6.1) ─────────────────────────────────────────
+  { id: "auto",       label: "AUTO",              icon: "⚡",  desc: "Система сама выбирает модель по задаче, сложности и бюджету" },
+  { id: "top",        label: "ТОП",               icon: "🏆",  desc: "Лучшая модель для каждой роли, оптимально по цене" },
+  { id: "optimum",    label: "ОПТИМУМ",           icon: "⚖️",  desc: "90% качества ТОП за 50% цены. Default." },
+  { id: "lite",       label: "ЛАЙТ",              icon: "🪶",  desc: "Приемлемое качество за минимальную стоимость" },
+  { id: "free",       label: "БЕСПЛАТНО",         icon: "🆓",  desc: "$0 за AI. Только Manus из подписки + Free модели" },
+  { id: "manual",     label: "MANUAL",            icon: "🎛️",  desc: "Система предлагает, вы меняете любую модель для любой роли" },
+  // ── Special modes ───────────────────────────────────────────────────────
+  { id: "normal",     label: "Обычный",           icon: "💬",  desc: "Стандартный режим без специальных настроек" },
+  { id: "collective", label: "Коллективный разум", icon: "🧠",  desc: "2–5 моделей параллельно → консолидированный ответ" },
 ];
 
 const CAPABILITIES = [

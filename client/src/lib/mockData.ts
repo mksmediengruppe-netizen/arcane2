@@ -54,16 +54,44 @@ export interface Race {
 }
 
 export const MODELS = [
-  { id: "claude-opus-4.6",   name: "Claude Opus 4.6",   provider: "Anthropic", color: "#D4A574", icon: "◈", costIn: 5,    costOut: 25,  tier: "genius" },
-  { id: "claude-sonnet-4.6", name: "Claude Sonnet 4.6", provider: "Anthropic", color: "#7EB8DA", icon: "◇", costIn: 3,    costOut: 15,  tier: "standard" },
-  { id: "claude-haiku-4.5",  name: "Claude Haiku 4.5",  provider: "Anthropic", color: "#A8D5BA", icon: "△", costIn: 1,    costOut: 5,   tier: "fast" },
-  { id: "gpt-5.4",           name: "GPT-5.4",           provider: "OpenAI",    color: "#C4A7E7", icon: "●", costIn: 2.5,  costOut: 15,  tier: "genius" },
-  { id: "gpt-5.4-mini",      name: "GPT-5.4 Mini",      provider: "OpenAI",    color: "#B8A9C9", icon: "○", costIn: 0.75, costOut: 4.5, tier: "fast" },
-  { id: "gemini-3.1-pro",    name: "Gemini 3.1 Pro",    provider: "Google",    color: "#F2C078", icon: "✦", costIn: 2,    costOut: 12,  tier: "standard" },
-  { id: "gemini-2.5-flash",  name: "Gemini 2.5 Flash",  provider: "Google",    color: "#E8D5A3", icon: "⚡", costIn: 0.3,  costOut: 2.5, tier: "fast" },
-  { id: "deepseek-v3.2",     name: "DeepSeek V3.2",     provider: "DeepSeek",  color: "#82C9A5", icon: "◆", costIn: 0.28, costOut: 0.42,tier: "optimum" },
-  { id: "deepseek-r2",       name: "DeepSeek R2",       provider: "DeepSeek",  color: "#6BB89A", icon: "◈", costIn: 0.55, costOut: 2.19,tier: "standard" },
-  { id: "minimax-m2.5",      name: "MiniMax M2.5",      provider: "MiniMax",   color: "#E09F7D", icon: "■", costIn: 0.3,  costOut: 1.2, tier: "standard" },
+  // ── Flagship ────────────────────────────────────────────────────────────────
+  { id: "claude-opus-4.6",   name: "Claude Opus 4.6",    provider: "Anthropic", color: "#D4A574", icon: "◈", costIn: 5,    costOut: 25,   tier: "genius",  isFree: false, context: 1000, swe: 80.8, superpower: "Deep reasoning, архитектура",     transport: "native" },
+  { id: "gpt-5.4",           name: "GPT-5.4",            provider: "OpenAI",    color: "#C4A7E7", icon: "●", costIn: 2.5,  costOut: 15,   tier: "genius",  isFree: false, context: 1000, swe: 80.0, superpower: "Code audit #1",                  transport: "native" },
+  // ── Standard ────────────────────────────────────────────────────────────────
+  { id: "claude-sonnet-4.6", name: "Claude Sonnet 4.6",  provider: "Anthropic", color: "#7EB8DA", icon: "◇", costIn: 3,    costOut: 15,   tier: "standard", isFree: false, context: 1000, swe: 79.6, superpower: "Frontend/дизайн #1",             transport: "native" },
+  { id: "gemini-3.1-pro",    name: "Gemini 3.1 Pro",     provider: "Google",    color: "#F2C078", icon: "✦", costIn: 2,    costOut: 12,   tier: "standard", isFree: false, context: 1000, swe: 80.6, superpower: "SWE #1, код",                   transport: "openrouter" },
+  { id: "deepseek-v3.2",     name: "DeepSeek V3.2",      provider: "DeepSeek",  color: "#82C9A5", icon: "◆", costIn: 0.28, costOut: 0.42,  tier: "optimum",  isFree: false, context: 128,  swe: 73.0, superpower: "Дешёвый код",                   transport: "openrouter" },
+  { id: "minimax-m2.5",      name: "MiniMax M2.5",       provider: "MiniMax",   color: "#E09F7D", icon: "■", costIn: 0.3,  costOut: 1.2,  tier: "standard", isFree: false, context: 256,  swe: 80.2, superpower: "Open-weight",                   transport: "openrouter" },
+  // ── Fast ────────────────────────────────────────────────────────────────────
+  { id: "claude-haiku-4.5",  name: "Claude Haiku 4.5",   provider: "Anthropic", color: "#A8D5BA", icon: "△", costIn: 1,    costOut: 5,    tier: "fast",     isFree: false, context: 200,  swe: null, superpower: "Быстрый, vision",               transport: "native" },
+  { id: "gpt-5.4-mini",      name: "GPT-5.4 Mini",       provider: "OpenAI",    color: "#B8A9C9", icon: "○", costIn: 0.75, costOut: 4.5,  tier: "fast",     isFree: false, context: 400,  swe: null, superpower: "Планирование",                  transport: "native" },
+  { id: "gpt-5.4-nano",      name: "GPT-5.4 Nano",       provider: "OpenAI",    color: "#9E9EC9", icon: "·", costIn: 0.20, costOut: 1.25, tier: "fast",     isFree: false, context: 400,  swe: null, superpower: "Классификация",                 transport: "native" },
+  { id: "gemini-2.5-flash",  name: "Gemini 2.5 Flash",   provider: "Google",    color: "#E8D5A3", icon: "⚡", costIn: 0.3,  costOut: 2.5,  tier: "fast",     isFree: false, context: 1000, swe: null, superpower: "Оркестратор",                   transport: "openrouter" },
+  // ── Free ────────────────────────────────────────────────────────────────────
+  { id: "kimi-k2.5",         name: "Kimi K2.5",          provider: "Moonshot",  color: "#78C8E0", icon: "☽", costIn: 0,    costOut: 0,    tier: "free",     isFree: true,  context: null, swe: 76.8, superpower: "#2 по usage, OpenRouter",       transport: "openrouter" },
+  { id: "step-3.5-flash",    name: "Step 3.5 Flash",     provider: "StepFun",   color: "#90C8A0", icon: "→", costIn: 0,    costOut: 0,    tier: "free",     isFree: true,  context: 128,  swe: 74.4, superpower: "Бесплатный",                    transport: "openrouter" },
+  { id: "nemotron-3-super",  name: "Nemotron 3 Super",   provider: "NVIDIA",    color: "#76B900", icon: "⬡", costIn: 0,    costOut: 0,    tier: "free",     isFree: true,  context: 1000, swe: null, superpower: "NVIDIA, бесплатный",            transport: "openrouter" },
+];
+
+// ── Image Generation Models ──────────────────────────────────────────────────
+export interface ImageModel {
+  id: string;
+  name: string;
+  provider: string;
+  color: string;
+  costPerImage: number | null;
+  isFree: boolean;
+  superpower: string;
+  style: string; // photorealistic | artistic | typography | svg | fast | stock
+}
+
+export const IMAGE_MODELS: ImageModel[] = [
+  { id: "flux-2-pro",    name: "Flux 2 Pro",      provider: "Black Forest", color: "#E05A5A", costPerImage: 0.055,  isFree: false, superpower: "Фотореализм #1",       style: "photorealistic" },
+  { id: "midjourney-v8", name: "Midjourney V8",   provider: "Midjourney",  color: "#9B59B6", costPerImage: 0.10,   isFree: false, superpower: "Художественное #1",    style: "artistic" },
+  { id: "ideogram-v3",   name: "Ideogram V3",     provider: "Ideogram",    color: "#3498DB", costPerImage: 0.04,   isFree: false, superpower: "Типографика 95%",      style: "typography" },
+  { id: "recraft-v4",    name: "Recraft V4",      provider: "Recraft",     color: "#1ABC9C", costPerImage: 0.04,   isFree: false, superpower: "SVG export #1",        style: "svg" },
+  { id: "flux-schnell",  name: "Flux Schnell",    provider: "Black Forest", color: "#F39C12", costPerImage: 0.015,  isFree: false, superpower: "Быстро + дёшево",     style: "fast" },
+  { id: "pexels-api",    name: "Pexels API",      provider: "Pexels",      color: "#05A081", costPerImage: null,   isFree: true,  superpower: "Стоковые фото, Free",  style: "stock" },
 ];
 
 export const MODEL_MAP = Object.fromEntries(MODELS.map(m => [m.id, m]));

@@ -8,7 +8,8 @@ import {
   LayoutDashboard, Settings, Users, BookOpen,
   Calendar, Moon, Sun, LogOut, Zap, ChevronLeft,
   ChevronUp, HelpCircle, Globe, Download, Search, X,
-  MoreHorizontal, Pencil, Trash2, DollarSign, Copy, Pin, Bell, CheckCheck
+  MoreHorizontal, Pencil, Trash2, DollarSign, Copy, Pin, Bell, CheckCheck,
+  Cpu, Brain
 } from "lucide-react";
 import {
   AlertDialog,
@@ -53,6 +54,8 @@ const FILTER_OPTIONS: { id: StatusFilter; label: string; dot?: string }[] = [
 ];
 
 const navItems: { icon: React.ReactNode; label: string; view: View; shortcut?: string }[] = [
+  { icon: <Cpu size={14} />,             label: "Модели",        view: "models",     shortcut: "⌘M" },
+  { icon: <Brain size={14} />,           label: "Консолидация",  view: "consolidation" },
   { icon: <BookOpen size={14} />,        label: "Плейбуки",      view: "playbooks",  shortcut: "⌘P" },
   { icon: <Calendar size={14} />,        label: "Расписание",    view: "schedule",   shortcut: "⌘R" },
   { icon: <LayoutDashboard size={14} />, label: "Дашборды",      view: "dashboard",  shortcut: "⌘D" },
