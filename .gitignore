@@ -1,0 +1,41 @@
+# Secrets — NEVER commit real credentials
+.env
+*.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.log
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+*.swp
+*.swo
+Thumbs.db
+
+# Node
+node_modules/
+.npm/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Runtime data
+workspace/
+*.pid
+.backups/
+.backups/
